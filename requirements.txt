@@ -1,1 +1,1 @@
-# BeamMods currently uses Python's standard library only.
+psycopg[binary]>=3.2,<4

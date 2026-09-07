@@ -15,13 +15,13 @@
   <header class="site-header">
     <a class="brand" href="#" aria-label="BeamMods — home">
       <span class="brand-mark">B</span>
-      <span>beam<span>mods</span></span>
+      <span>Beam<span>Mods</span></span>
     </a>
     <nav class="main-nav" aria-label="Main navigation">
       <a class="active" id="browse-link" href="#mods">Browse mods</a>
       <a id="how-link" href="#how-it-works">How it works</a>
     </nav>
-    <button class="account-button" data-open-auth>Sign in</button>
+    <button class="account-button" data-open-auth><span class="account-avatar" id="account-avatar" aria-hidden="true">?</span><span id="account-label">Sign in</span></button>
     <button class="upload-button" data-open-upload>
       <span>+</span> Upload mod
     </button>
@@ -36,6 +36,7 @@
       <div class="dashboard-grid">
         <aside class="dashboard-sidebar">
           <div class="avatar" id="dashboard-avatar">B</div>
+          <div class="avatar-actions"><label class="avatar-upload">Change profile photo<input id="profile-image-input" type="file" accept="image/png,image/jpeg,image/webp"></label><button class="avatar-reset" id="profile-image-reset" type="button">Remove photo</button></div>
           <h2 id="dashboard-name"></h2>
           <p id="dashboard-email"></p>
           <button class="dashboard-action active" id="published-view-link">Published mods</button>
@@ -90,7 +91,7 @@
         <p class="standalone-lead">BeamMods keeps publishing simple for creators and trustworthy for players. Follow four clear steps from your first sign-in to a live community release.</p>
         <div class="standalone-steps">
           <article><span>01</span><div><h2>Create your account</h2><p>Sign in with a local BeamMods account or use the demo Google sign-in. Your profile and published mods stay connected to your account on this device.</p></div></article>
-          <article><span>02</span><div><h2>Prepare your upload</h2><p>Add the mod name, category, creator name, version, configs, description, ZIP file and an optional preview image. The file size is read automatically.</p></div></article>
+          <article><span>02</span><div><h2>Prepare your upload</h2><p>Add the mod name, category, creator name, versions, configs, description, ZIP file and up to five preview images. The file size is read automatically.</p></div></article>
           <article><span>03</span><div><h2>Owner review</h2><p>New submissions remain private until the owner checks the preview, description, download source and technical details. You can see the pending status in your dashboard.</p></div></article>
           <article><span>04</span><div><h2>Publish and share</h2><p>After approval, the mod becomes visible in the public library. Players can open its details, read your description and follow the download source.</p></div></article>
         </div>
@@ -100,7 +101,7 @@
       <div class="hero-copy">
         <p class="eyebrow"><span class="pulse"></span> Community mod library</p>
         <h1>Your garage.<br><em>Unlimited.</em></h1>
-        <p class="hero-description">Discover, download and share the best community mods for BeamNG.drive.</p>
+        <p class="hero-description">Discover, download free mods and share the best community mods for BeamNG.drive.</p>
         <a class="hero-cta" href="#mods">Explore the library <span>↗</span></a>
       </div>
       <div class="hero-art" aria-label="Featured BeamNG car artwork">
@@ -150,22 +151,22 @@
       <p class="empty-state" id="empty-state" hidden>No mods found. Try another search.</p>
     </section>
 
-    <section class="how-section" id="how-it-works">
-      <div class="how-intro">
-        <p class="eyebrow">Join the crew</p>
-        <h2>Made something<br><em>good?</em></h2>
+    <section class="home-cta" aria-labelledby="home-cta-title">
+      <div class="home-cta-heading">
+        <p class="eyebrow">Find your next ride</p>
+        <h2 id="home-cta-title">Your next<br><em>favorite.</em></h2>
       </div>
-      <div class="how-copy">
-        <p>BeamMods is built by players, for players. Upload your mod, get feedback and help the community grow.</p>
-        <div class="how-steps">
-          <article><span>01</span><div><strong>Create your account</strong><p>Sign in to keep your uploads and profile saved on this device.</p></div></article>
-          <article><span>02</span><div><strong>Upload your mod</strong><p>Add a ZIP file, preview image, version, configs and a clear description.</p></div></article>
-          <article><span>03</span><div><strong>Owner review</strong><p>Every submission is checked before it becomes visible to the community.</p></div></article>
-          <article><span>04</span><div><strong>Share with players</strong><p>Once approved, your mod appears in the public library for others to discover.</p></div></article>
+      <div class="home-cta-content">
+        <p>Explore a growing library of community-made BeamNG.drive mods and find something new for your garage.</p>
+        <div class="home-cta-steps">
+          <article><span>01</span><strong>See it before you download</strong><small>Browse screenshots, specs and version details.</small></article>
+          <article><span>02</span><strong>Find the right fit</strong><small>Filter by cars, maps or gameplay mods.</small></article>
+          <article><span>03</span><strong>Join the conversation</strong><small>Rate mods and leave feedback for creators.</small></article>
         </div>
-        <button class="outline-button" data-open-upload>Upload your first mod <span>↗</span></button>
+        <a class="outline-button" href="#mods">Explore the library <span>↗</span></a>
       </div>
     </section>
+
   </main>
 
   <footer class="site-footer">
@@ -192,12 +193,13 @@
         </label>
         <label>Creator name<input name="author" required placeholder="Your display name"></label>
         <div class="form-row">
-          <label>Version<input name="version" required placeholder="1.0.0"></label>
+          <label>Mod version<input name="version" required placeholder="1.0.0"></label>
+          <label class="fixed-field">BeamNG version<strong>0.39</strong><input name="gameVersion" type="hidden" value="0.39"></label>
           <label>Configs<input name="configs" type="number" min="0" required placeholder="4"></label>
         </div>
         <label>Description<textarea name="description" required placeholder="Tell the community what makes this mod special..."></textarea></label>
         <label class="file-drop">Mod file (.zip)<input name="file" type="file" accept=".zip"><span id="file-name">Choose a ZIP file (when uploading locally)</span></label>
-        <label class="file-drop image-drop">Preview image<input name="image" id="image-input" type="file" accept="image/png,image/jpeg,image/webp"><span id="image-name">Optional JPG, PNG or WEBP</span><img id="upload-image-preview" alt="Selected mod preview" hidden></label>
+        <label class="file-drop image-drop">Preview images<input name="image" id="image-input" type="file" accept="image/png,image/jpeg,image/webp" multiple><span id="image-name">Optional JPG, PNG or WEBP · up to 5 images</span><div id="image-file-list" class="image-file-list" hidden></div></label>
         <label>Download source
           <select name="sourceType" id="source-type">
             <option value="file">Upload the mod file</option>
@@ -205,9 +207,9 @@
           </select>
         </label>
         <label id="download-link-field" hidden>Download link<input name="downloadUrl" type="url" placeholder="https://modsfire.com/..."></label>
-        <button class="submit-button" type="submit">Publish mod <span>↗</span></button>
+        <button class="submit-button" id="publish-submit" type="submit">Publish mod <span>↗</span></button>
       </form>
-      <p class="form-note">Every new mod is reviewed by the BeamMods owner before it becomes visible in the public library. Uploads are saved in this browser demo.</p>
+      <p class="form-note">Every new mod is reviewed by the BeamMods owner before it becomes visible in the public library. Images are optimized automatically before saving.</p>
     </section>
   </div>
   <div class="modal-backdrop" id="security-modal" hidden>
@@ -222,14 +224,47 @@
   <div class="modal-backdrop" id="details-modal" hidden>
     <section class="modal details-modal" role="dialog" aria-modal="true" aria-labelledby="details-title">
       <button class="modal-close" data-close-details aria-label="Close">×</button>
-      <div class="details-cover" id="details-cover"></div>
+      <div class="details-cover" id="details-cover">
+        <img class="details-main-image" id="details-main-image" alt="">
+        <button class="gallery-arrow gallery-prev" id="gallery-prev" type="button" aria-label="Previous screenshot">‹</button>
+        <button class="gallery-arrow gallery-next" id="gallery-next" type="button" aria-label="Next screenshot">›</button>
+      </div>
+      <div class="details-gallery" id="details-gallery" hidden aria-label="Mod screenshots"></div>
       <p class="eyebrow" id="details-category"></p>
       <h2 id="details-title"></h2>
       <p class="details-byline" id="details-author"></p>
       <p class="details-description" id="details-description"></p>
       <div class="details-extra" id="details-extra"></div>
       <div class="details-stats" id="details-stats"></div>
-      <button class="submit-button" id="details-download" type="button">Download ZIP mod <span>↓</span></button>
+      <button class="submit-button" id="details-download" type="button">Download mod package <span>↓</span></button>
+      <section class="details-rating" aria-labelledby="details-rating-title">
+        <div>
+          <p class="eyebrow">Community feedback</p>
+          <h3 id="details-rating-title">Rate this mod</h3>
+          <p id="details-rating-summary">No ratings yet</p>
+        </div>
+        <div class="rating-stars" id="rating-stars" role="group" aria-label="Rate this mod from one to five stars">
+          <button type="button" data-rating="1" aria-label="1 star">★</button>
+          <button type="button" data-rating="2" aria-label="2 stars">★</button>
+          <button type="button" data-rating="3" aria-label="3 stars">★</button>
+          <button type="button" data-rating="4" aria-label="4 stars">★</button>
+          <button type="button" data-rating="5" aria-label="5 stars">★</button>
+        </div>
+      </section>
+      <section class="details-comments" aria-labelledby="details-comments-title">
+        <div class="comments-heading">
+          <div>
+            <p class="eyebrow">Player discussion</p>
+            <h3 id="details-comments-title">Comments</h3>
+          </div>
+          <span id="comments-count">0 posts</span>
+        </div>
+        <div id="details-comments-list"></div>
+        <form id="details-comment-form">
+          <textarea name="comment" required maxlength="500" placeholder="Share feedback, installation tips or questions..."></textarea>
+          <button class="comment-submit" type="submit">Post comment <span>↗</span></button>
+        </form>
+      </section>
     </section>
   </div>
   <div class="modal-backdrop" id="auth-modal" hidden>
