@@ -1,5 +1,6 @@
 import hashlib
 import json
+import mimetypes
 import os
 import secrets
 import shutil
@@ -249,7 +250,8 @@ class Handler(BaseHTTPRequestHandler):
         if not requested.exists():
             return self.send_error(404)
         self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8" if requested.suffix == ".html" else "text/plain")
+        content_type, _ = mimetypes.guess_type(str(requested))
+        self.send_header("Content-Type", f"{content_type or 'application/octet-stream'}; charset=utf-8" if content_type and content_type.startswith(("text/", "application/javascript")) else (content_type or "application/octet-stream"))
         self.end_headers()
         with requested.open("rb") as stream:
             shutil.copyfileobj(stream, self.wfile)
