@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: beammods
+    runtime: python
+    buildCommand: "python -m py_compile server.py"
+    startCommand: "python server.py"
+    healthCheckPath: /api/mods
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      - key: PORT
+        value: "10000"

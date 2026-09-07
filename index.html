@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="BeamMods - a community mod hub for BeamNG.drive">
+  <title>BeamMods — BeamNG.drive mods</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="noise"></div>
+  <header class="site-header">
+    <a class="brand" href="#" aria-label="BeamMods — home">
+      <span class="brand-mark">B</span>
+      <span>beam<span>mods</span></span>
+    </a>
+    <nav class="main-nav" aria-label="Main navigation">
+      <a class="active" id="browse-link" href="#mods">Browse mods</a>
+      <a id="how-link" href="#how-it-works">How it works</a>
+    </nav>
+    <button class="account-button" data-open-auth>Sign in</button>
+    <button class="upload-button" data-open-upload>
+      <span>+</span> Upload mod
+    </button>
+  </header>
+
+  <main>
+    <section class="dashboard-page" id="dashboard-page" hidden>
+      <div class="dashboard-top">
+        <div><p class="eyebrow">Creator workspace</p><h1>Your <em>dashboard.</em></h1></div>
+        <button class="back-button" id="back-to-library">← Back to library</button>
+      </div>
+      <div class="dashboard-grid">
+        <aside class="dashboard-sidebar">
+          <div class="avatar" id="dashboard-avatar">B</div>
+          <h2 id="dashboard-name"></h2>
+          <p id="dashboard-email"></p>
+          <button class="dashboard-action active" id="published-view-link">Published mods</button>
+          <button class="dashboard-action" id="owner-panel-link" hidden>Owner approvals</button>
+          <button class="dashboard-action" id="report-bug-link">Report a bug</button>
+          <button class="dashboard-action" id="dashboard-sign-out">Sign out</button>
+          <button class="dashboard-action danger-action" id="delete-account">Delete account</button>
+        </aside>
+        <div class="dashboard-content">
+          <section id="published-view">
+            <div class="dashboard-stats"><div><span>Published</span><strong id="dashboard-count">0</strong></div><div><span>Member since</span><strong id="dashboard-date">—</strong></div></div>
+            <h2>My mods</h2>
+            <div id="profile-mods"></div>
+          </section>
+          <section class="owner-view" id="owner-view" hidden>
+            <div class="owner-view-heading"><div><p class="eyebrow">Private owner area</p><h2>Review <em>submissions.</em></h2></div><span class="owner-lock">OWNER ONLY</span></div>
+            <p class="owner-intro">Check the preview, description and download source before accepting a community mod.</p>
+            <div id="pending-mods"></div>
+          </section>
+          <section class="owner-view" id="dashboard-bug-view" hidden>
+            <div class="owner-view-heading"><div><p class="eyebrow">Community support</p><h2>Report a <em>mod bug.</em></h2></div></div>
+            <p class="owner-intro">Tell us what is not working. The owner can review your report and investigate the affected mod.</p>
+            <form id="dashboard-bug-form" class="dashboard-bug-form">
+              <label>Mod name<input name="modName" required placeholder="Which mod has a problem?"></label>
+              <label>Issue type<select name="type"><option>Broken mod</option><option>Download problem</option><option>Missing preview</option><option>Other</option></select></label>
+              <label>Details<textarea name="details" required placeholder="Describe what is not working..."></textarea></label>
+              <button class="submit-button" type="submit">Send bug report <span>↗</span></button>
+            </form>
+          </section>
+        </div>
+      </div>
+    </section>
+    <section class="standalone-page" id="bug-page" hidden>
+      <div class="standalone-top"><div><p class="eyebrow">Community support</p><h1>Report a <em>mod bug.</em></h1></div><button class="back-button" id="back-from-bug">← Back to library</button></div>
+      <div class="standalone-content">
+        <p>Tell us what is not working. The owner can review your report and investigate the affected mod.</p>
+        <form id="bug-page-form">
+          <label>Mod name<input name="modName" required placeholder="Which mod has a problem?"></label>
+          <label>Issue type<select name="type"><option>Broken mod</option><option>Download problem</option><option>Missing preview</option><option>Other</option></select></label>
+          <label>Details<textarea name="details" required placeholder="Describe what is not working..."></textarea></label>
+          <button class="submit-button" type="submit">Send bug report <span>↗</span></button>
+        </form>
+      </div>
+    </section>
+    <section class="standalone-page" id="dmca-page" hidden>
+      <div class="standalone-top"><div><p class="eyebrow">Legal information</p><h1>DMCA <em>notice.</em></h1></div><button class="back-button" id="back-from-dmca">← Back to library</button></div>
+      <div class="standalone-content legal-copy"><p>BeamMods respects copyright and intellectual property rights. If you own content published on this demo site and believe it is being used without permission, send a notice with the work identification, direct mod URL, contact details and a statement of good-faith belief.</p><p class="form-note">This static demo does not process legal notices automatically. A production site should route DMCA requests to the site owner or designated agent.</p></div>
+    </section>
+    <section class="standalone-page how-page" id="how-page" hidden>
+      <div class="standalone-top"><div><p class="eyebrow">The BeamMods process</p><h1>How it <em>works.</em></h1></div><button class="back-button" id="back-from-how">← Back to library</button></div>
+      <div class="standalone-content">
+        <p class="standalone-lead">BeamMods keeps publishing simple for creators and trustworthy for players. Follow four clear steps from your first sign-in to a live community release.</p>
+        <div class="standalone-steps">
+          <article><span>01</span><div><h2>Create your account</h2><p>Sign in with a local BeamMods account or use the demo Google sign-in. Your profile and published mods stay connected to your account on this device.</p></div></article>
+          <article><span>02</span><div><h2>Prepare your upload</h2><p>Add the mod name, category, creator name, version, configs, description, ZIP file and an optional preview image. The file size is read automatically.</p></div></article>
+          <article><span>03</span><div><h2>Owner review</h2><p>New submissions remain private until the owner checks the preview, description, download source and technical details. You can see the pending status in your dashboard.</p></div></article>
+          <article><span>04</span><div><h2>Publish and share</h2><p>After approval, the mod becomes visible in the public library. Players can open its details, read your description and follow the download source.</p></div></article>
+        </div>
+      </div>
+    </section>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="pulse"></span> Community mod library</p>
+        <h1>Your garage.<br><em>Unlimited.</em></h1>
+        <p class="hero-description">Discover, download and share the best community mods for BeamNG.drive.</p>
+        <a class="hero-cta" href="#mods">Explore the library <span>↗</span></a>
+      </div>
+      <div class="hero-art" aria-label="Featured BeamNG car artwork">
+        <div class="hero-grid"></div>
+        <div class="speed-line line-one"></div>
+        <div class="speed-line line-two"></div>
+        <span class="hero-stamp">FEATURE / 026</span>
+      </div>
+    </section>
+
+    <section class="content-section" id="mods">
+      <section class="discover-panel" aria-label="Mod search overview">
+        <label><span>SEARCH MODS</span><input id="panel-search" type="search" placeholder="Mod title keyword..."></label>
+        <label><span>FILTER BY GAME</span><input type="text" value="BeamNG.drive" readonly></label>
+        <label><span>SEARCH AUTHOR</span><input id="author-search" type="search" placeholder="Creator name..."></label>
+        <label><span>CATEGORY</span><select id="category-select"><option value="All">All categories</option><option value="Cars">Cars</option><option value="Maps">Maps</option><option value="Gameplay">Gameplay</option></select></label>
+        <button class="clear-search" id="clear-search" type="button">Clear</button>
+      </section>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Community library</p>
+          <h2>Fresh drops</h2>
+        </div>
+        <div class="view-toggle" aria-label="View">
+          <button class="view-button selected" aria-label="Grid view">▦</button>
+          <button class="view-button" aria-label="List view">☰</button>
+        </div>
+      </div>
+      <div class="toolbar">
+        <label class="search-box">
+          <span>⌕</span>
+          <input id="search-input" type="search" placeholder="Search mods, vehicles, creators..." autocomplete="off">
+        </label>
+        <div class="filters" role="group" aria-label="Filter mods">
+          <button class="filter active" data-filter="All">All</button>
+          <button class="filter" data-filter="Cars">Cars</button>
+          <button class="filter" data-filter="Maps">Maps</button>
+          <button class="filter" data-filter="Gameplay">Gameplay</button>
+        </div>
+        <select class="sort-select" id="sort-select" aria-label="Sort mods">
+          <option value="newest">Newest</option>
+          <option value="popular">Most popular</option>
+          <option value="rating">Top rated</option>
+        </select>
+      </div>
+      <div class="mods-grid" id="mods-grid"></div>
+      <p class="empty-state" id="empty-state" hidden>No mods found. Try another search.</p>
+    </section>
+
+    <section class="how-section" id="how-it-works">
+      <div class="how-intro">
+        <p class="eyebrow">Join the crew</p>
+        <h2>Made something<br><em>good?</em></h2>
+      </div>
+      <div class="how-copy">
+        <p>BeamMods is built by players, for players. Upload your mod, get feedback and help the community grow.</p>
+        <div class="how-steps">
+          <article><span>01</span><div><strong>Create your account</strong><p>Sign in to keep your uploads and profile saved on this device.</p></div></article>
+          <article><span>02</span><div><strong>Upload your mod</strong><p>Add a ZIP file, preview image, version, configs and a clear description.</p></div></article>
+          <article><span>03</span><div><strong>Owner review</strong><p>Every submission is checked before it becomes visible to the community.</p></div></article>
+          <article><span>04</span><div><strong>Share with players</strong><p>Once approved, your mod appears in the public library for others to discover.</p></div></article>
+        </div>
+        <button class="outline-button" data-open-upload>Upload your first mod <span>↗</span></button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>© 2026 BEAMMODS</span>
+    <span>Unofficial BeamNG.drive community</span>
+    <span>BEAMNG.drive © BeamNG</span>
+    <button class="footer-link" id="dmca-link" type="button">DMCA</button>
+    <button class="footer-link" id="footer-bug-link" type="button">Report a bug</button>
+  </footer>
+
+  <div class="modal-backdrop" id="upload-modal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="upload-title">
+      <button class="modal-close" data-close-upload aria-label="Close">×</button>
+      <p class="eyebrow">Publish a mod</p>
+      <h2 id="upload-title">Drop something <em>new.</em></h2>
+      <form id="upload-form">
+        <label>Mod name<input name="name" required placeholder="e.g. Ibishu Covet Rally"></label>
+        <label>Category
+          <select name="category">
+            <option>Cars</option>
+            <option>Maps</option>
+            <option>Gameplay</option>
+          </select>
+        </label>
+        <label>Creator name<input name="author" required placeholder="Your display name"></label>
+        <div class="form-row">
+          <label>Version<input name="version" required placeholder="1.0.0"></label>
+          <label>Configs<input name="configs" type="number" min="0" required placeholder="4"></label>
+        </div>
+        <label>Description<textarea name="description" required placeholder="Tell the community what makes this mod special..."></textarea></label>
+        <label class="file-drop">Mod file (.zip)<input name="file" type="file" accept=".zip"><span id="file-name">Choose a ZIP file (when uploading locally)</span></label>
+        <label class="file-drop image-drop">Preview image<input name="image" id="image-input" type="file" accept="image/png,image/jpeg,image/webp"><span id="image-name">Optional JPG, PNG or WEBP</span><img id="upload-image-preview" alt="Selected mod preview" hidden></label>
+        <label>Download source
+          <select name="sourceType" id="source-type">
+            <option value="file">Upload the mod file</option>
+            <option value="link">Use an external link</option>
+          </select>
+        </label>
+        <label id="download-link-field" hidden>Download link<input name="downloadUrl" type="url" placeholder="https://modsfire.com/..."></label>
+        <button class="submit-button" type="submit">Publish mod <span>↗</span></button>
+      </form>
+      <p class="form-note">Every new mod is reviewed by the BeamMods owner before it becomes visible in the public library. Uploads are saved in this browser demo.</p>
+    </section>
+  </div>
+  <div class="modal-backdrop" id="security-modal" hidden>
+    <section class="modal security-modal" role="dialog" aria-modal="true" aria-labelledby="security-title">
+      <p class="eyebrow">Upload security check</p>
+      <h2 id="security-title">Checking your <em>file.</em></h2>
+      <div class="security-status"><span class="security-dot"></span><span id="security-message">Inspecting file name, type and size...</span></div>
+      <div class="security-bar"><span id="security-progress"></span></div>
+      <p class="form-note">This browser demo checks extension and size only. Production uploads should be scanned server-side with ClamAV or a malware scanning API.</p>
+    </section>
+  </div>
+  <div class="modal-backdrop" id="details-modal" hidden>
+    <section class="modal details-modal" role="dialog" aria-modal="true" aria-labelledby="details-title">
+      <button class="modal-close" data-close-details aria-label="Close">×</button>
+      <div class="details-cover" id="details-cover"></div>
+      <p class="eyebrow" id="details-category"></p>
+      <h2 id="details-title"></h2>
+      <p class="details-byline" id="details-author"></p>
+      <p class="details-description" id="details-description"></p>
+      <div class="details-extra" id="details-extra"></div>
+      <div class="details-stats" id="details-stats"></div>
+      <button class="submit-button" id="details-download" type="button">Download ZIP mod <span>↓</span></button>
+    </section>
+  </div>
+  <div class="modal-backdrop" id="auth-modal" hidden>
+    <section class="modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+      <button class="modal-close" data-close-auth aria-label="Close">×</button>
+      <p class="eyebrow">BeamMods account</p>
+      <h2 id="auth-title">Join the <em>garage.</em></h2>
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-auth-tab="login">Sign in</button>
+        <button class="auth-tab" data-auth-tab="register">Create account</button>
+      </div>
+      <button class="google-button" id="google-sign-in" type="button"><span>G</span> Continue with Google</button>
+      <div class="auth-divider"><span>or use your BeamMods account</span></div>
+      <form id="auth-form">
+        <label>Username<input name="username" required placeholder="Your username"></label>
+        <label>Email<input name="email" type="email" required placeholder="you@example.com"></label>
+        <label>Password<input name="password" type="password" required minlength="6" placeholder="At least 6 characters"></label>
+        <button class="submit-button" type="submit" id="auth-submit">Sign in <span>↗</span></button>
+      </form>
+      <p class="form-note" id="auth-note">Demo accounts are stored locally in this browser.</p>
+    </section>
+  </div>
+  <div class="modal-backdrop confirm-backdrop" id="confirm-modal" hidden>
+    <section class="modal confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <p class="eyebrow">Please confirm</p>
+      <h2 id="confirm-title">Are you sure?</h2>
+      <p id="confirm-message" class="form-note"></p>
+      <div class="confirm-actions"><button class="back-button" id="confirm-cancel">Cancel</button><button class="submit-button" id="confirm-accept">Confirm</button></div>
+    </section>
+  </div>
+  <div class="modal-backdrop" id="bug-modal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="bug-title">
+      <button class="modal-close" data-close-bug aria-label="Close">×</button>
+      <p class="eyebrow">Community support</p>
+      <h2 id="bug-title">Report a <em>mod bug.</em></h2>
+      <form id="bug-form">
+        <label>Mod name<input name="modName" required placeholder="Which mod has a problem?"></label>
+        <label>Issue type<select name="type"><option>Broken mod</option><option>Download problem</option><option>Missing preview</option><option>Other</option></select></label>
+        <label>Details<textarea name="details" required placeholder="Describe what is not working..."></textarea></label>
+        <button class="submit-button" type="submit">Send bug report <span>↗</span></button>
+      </form>
+      <p class="form-note">Reports are saved to your account in this browser demo and can be reviewed by the owner.</p>
+    </section>
+  </div>
+  <div class="modal-backdrop" id="dmca-modal" hidden>
+    <section class="modal info-modal" role="dialog" aria-modal="true" aria-labelledby="dmca-title">
+      <button class="modal-close" data-close-dmca aria-label="Close">×</button>
+      <p class="eyebrow">Legal information</p>
+      <h2 id="dmca-title">DMCA <em>notice.</em></h2>
+      <p>BeamMods respects copyright and intellectual property rights. If you own content published on this demo site and believe it is being used without permission, send a notice with the work identification, the direct mod URL, your contact details and a statement of good-faith belief.</p>
+      <p class="form-note">This static demo does not process legal notices automatically. A production site should route DMCA requests to the site owner or designated agent.</p>
+    </section>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
