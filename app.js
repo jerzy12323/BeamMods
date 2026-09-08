@@ -15,6 +15,7 @@ async function apiRequest(path, options = {}) {
   } finally {
     window.clearTimeout(timeout);
   }
+  if (response.status === 204) return null;
   const type = response.headers.get("content-type") || "";
   const payload = type.includes("application/json")
     ? await response.json()
@@ -199,14 +200,44 @@ async function renderOwnerReports() {
   if (!target) return;
   if (!remoteMode) {
     const reports = JSON.parse(localStorage.getItem("beammods-bug-reports") || "[]");
-    target.innerHTML = reports.length ? reports.map((report) => `<article class="approval-card"><div class="profile-mod-main"><strong>${escapeHtml(report.modName || report.title)}</strong><span>${escapeHtml(report.reporter || "Guest")} · ${escapeHtml(report.type || "Other")}</span><p>${escapeHtml(report.details || report.body)}</p></div></article>`).join("") : "<p class='form-note'>No reports yet.</p>";
+    target.innerHTML = reports.length ? reports.map((report) => `<details class="approval-card report-card"><summary><div class="profile-mod-main"><strong>${escapeHtml(report.modName || report.title)}</strong><span>${escapeHtml(report.reporter || "Guest")} · ${escapeHtml(report.type || "Other")} · ${new Date(report.createdAt).toLocaleString()}</span></div><span class="report-chevron">+</span></summary><div class="report-details"><p>${escapeHtml(report.details || report.body)}</p></div></details>`).join("") : "<p class='form-note'>No reports yet.</p>";
     return;
   }
   try {
     const reports = await apiRequest("/api/reports");
-    target.innerHTML = reports.length ? reports.map((report) => `<article class="approval-card"><div class="profile-mod-main"><strong>${escapeHtml(report.title)}</strong><span>${escapeHtml(report.username)} · ${escapeHtml(report.email)}</span><p>${escapeHtml(report.body)}</p></div></article>`).join("") : "<p class='form-note'>No reports yet.</p>";
+    target.innerHTML = reports.length ? reports.map((report) => `<details class="approval-card report-card"><summary><div class="profile-mod-main"><strong>${escapeHtml(report.title)}</strong><span>${escapeHtml(report.username)} · ${escapeHtml(report.email)} · ${new Date(report.created_at).toLocaleString()}</span></div><span class="report-chevron">+</span></summary><div class="report-details"><p>${escapeHtml(report.body)}</p></div></details>`).join("") : "<p class='form-note'>No reports yet.</p>";
   } catch (error) {
     target.innerHTML = `<p class="form-note form-error">${escapeHtml(error.message)}</p>`;
+  }
+
+}
+
+async function submitBugReport(formElement, successView) {
+  const report = Object.fromEntries(new FormData(formElement));
+  const errorElement = formElement.querySelector(".form-error");
+  if (errorElement) errorElement.textContent = "";
+  if (remoteMode) {
+    if (!currentUser) {
+      showAuthPage();
+      showAuthMessage("Sign in before sending a bug report.");
+      return;
+    }
+    await apiRequest("/api/reports", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(report)
+    });
+  } else {
+    const reports = JSON.parse(localStorage.getItem("beammods-bug-reports") || "[]");
+    reports.push({ ...report, reporter: currentUser?.username || "guest", createdAt: new Date().toISOString() });
+    localStorage.setItem("beammods-bug-reports", JSON.stringify(reports));
+  }
+  formElement.reset();
+  if (successView === "dashboard") {
+    showActionNotice("Bug report sent", "The owner can now review this report and investigate the problem.");
+  } else {
+    bugModal.hidden = true;
+    showActionNotice("Bug report sent", "The owner can now review this report and investigate the problem.");
   }
 }
 
@@ -270,31 +301,6 @@ function renderMods() {
       if (sortSelect.value === "rating") return Number(b.rating) - Number(a.rating);
       return a.age - b.age;
     });
-    document.querySelector("#dashboard-bug-form").addEventListener("submit", (event) => {
-      event.preventDefault();
-      const report = Object.fromEntries(new FormData(event.currentTarget));
-      if (remoteMode) {
-        apiRequest("/api/reports", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(report) })
-          .then(() => { event.currentTarget.reset(); askConfirmation("Bug report sent", "The owner can now review this report.", showDashboard); })
-          .catch((error) => { event.currentTarget.querySelector(".form-error").textContent = error.message; });
-        return;
-      }
-      const reports = JSON.parse(localStorage.getItem("beammods-bug-reports") || "[]");
-      reports.push({ ...report, reporter: currentUser.username, createdAt: new Date().toISOString() });
-      localStorage.setItem("beammods-bug-reports", JSON.stringify(reports));
-      event.currentTarget.reset();
-      askConfirmation("Bug report sent", "Thanks. The owner can now review this report and investigate the mod.", showDashboard);
-    });
-    bugPageForm.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const report = Object.fromEntries(new FormData(bugPageForm));
-      const reports = JSON.parse(localStorage.getItem("beammods-bug-reports") || "[]");
-      reports.push({ ...report, reporter: currentUser?.username || "guest", createdAt: new Date().toISOString() });
-      localStorage.setItem("beammods-bug-reports", JSON.stringify(reports));
-      bugPageForm.reset();
-      askConfirmation("Bug report sent", "Thanks. The owner can now review this report and investigate the mod.", showLibrary);
-    });
-
   const pageCount = 3;
   currentLibraryPage = Math.min(currentLibraryPage, pageCount);
   const pageStart = (currentLibraryPage - 1) * modsPerPage;
@@ -697,6 +703,8 @@ const uploadModal = document.querySelector("#upload-modal");
 const detailsModal = document.querySelector("#details-modal");
 const securityModal = document.querySelector("#security-modal");
 const securityClose = document.querySelector("#security-close");
+const uploadConfirmation = document.querySelector("#upload-confirmation");
+const uploadConfirmationText = document.querySelector("#upload-confirmation-text");
 const confirmModal = document.querySelector("#confirm-modal");
 const bugModal = document.querySelector("#bug-modal");
 const dmcaModal = document.querySelector("#dmca-modal");
@@ -902,12 +910,20 @@ securityModal.addEventListener("click", (event) => {
   if (event.target === securityModal) securityModal.hidden = true;
 });
 securityClose.addEventListener("click", () => { securityModal.hidden = true; });
+function showUploadConfirmation(name, source) {
+  uploadConfirmationText.textContent = source === "link"
+    ? `"${name}" was submitted with its external download link.`
+    : `"${name}" was uploaded successfully and is waiting for owner approval.`;
+  uploadConfirmation.hidden = false;
+  window.setTimeout(() => { uploadConfirmation.hidden = true; }, 6500);
+}
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     resetUploadForm();
     uploadModal.hidden = true;
     detailsModal.hidden = true;
     securityModal.hidden = true;
+    uploadConfirmation.hidden = true;
     authModal.hidden = true;
     confirmModal.hidden = true;
     bugModal.hidden = true;
@@ -1077,15 +1093,30 @@ document.querySelector("#back-from-dmca").addEventListener("click", leaveStandal
 document.querySelector("#back-from-how").addEventListener("click", showLibrary);
 document.querySelector("[data-close-bug]").addEventListener("click", () => { bugModal.hidden = true; });
 document.querySelector("[data-close-dmca]").addEventListener("click", () => { dmcaModal.hidden = true; });
-bugForm.addEventListener("submit", (event) => {
+bugForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const report = Object.fromEntries(new FormData(bugForm));
-  const reports = JSON.parse(localStorage.getItem("beammods-bug-reports") || "[]");
-  reports.push({ ...report, reporter: currentUser.username, createdAt: new Date().toISOString() });
-  localStorage.setItem("beammods-bug-reports", JSON.stringify(reports));
-  bugForm.reset();
-  bugModal.hidden = true;
-  askConfirmation("Bug report sent", "Thanks. The owner can now review this report and investigate the mod.", () => {});
+  try {
+    await submitBugReport(bugForm, "library");
+  } catch (error) {
+    const message = error.message || "Could not send the bug report.";
+    showActionNotice("Report failed", message);
+  }
+});
+document.querySelector("#dashboard-bug-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await submitBugReport(event.currentTarget, "dashboard");
+  } catch (error) {
+    event.currentTarget.querySelector(".form-error").textContent = error.message || "Could not send the bug report.";
+  }
+});
+bugPageForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await submitBugReport(bugPageForm, "library");
+  } catch (error) {
+    showActionNotice("Report failed", error.message || "Could not send the bug report.");
+  }
 });
 document.querySelector(".brand").addEventListener("click", (event) => {
   event.preventDefault();
@@ -1117,7 +1148,7 @@ document.querySelector("#profile-mods").addEventListener("click", (event) => {
       try {
         await apiRequest(`/api/mods/${target.id}`, { method: "DELETE" });
       } catch (error) {
-        alert(error.message);
+        showActionNotice("Deletion failed", error.message);
         return;
       }
     }
@@ -1125,6 +1156,7 @@ document.querySelector("#profile-mods").addEventListener("click", (event) => {
     localStorage.setItem("beammods-mods", JSON.stringify(mods.filter((mod) => !defaultMods.includes(mod))));
     showDashboard();
     renderMods();
+    showActionNotice("Mod deleted", `"${target?.name || button.dataset.modName}" was removed successfully.`);
   });
 });
 document.querySelector("#pending-mods").addEventListener("click", (event) => {
@@ -1143,7 +1175,7 @@ document.querySelector("#pending-mods").addEventListener("click", (event) => {
         try {
           await apiRequest(`/api/mods/${mod.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approved: 1 }) });
         } catch (error) {
-          alert(error.message);
+          showActionNotice("Approval failed", error.message);
           return;
         }
       }
@@ -1151,6 +1183,7 @@ document.querySelector("#pending-mods").addEventListener("click", (event) => {
       localStorage.setItem("beammods-mods", JSON.stringify(mods.filter((item) => !defaultMods.includes(item))));
       renderPendingMods();
       renderMods();
+      showActionNotice("Mod approved", `"${mod.name}" is now approved and visible in the public library.`);
     });
     return;
   }
@@ -1160,7 +1193,7 @@ document.querySelector("#pending-mods").addEventListener("click", (event) => {
         try {
           await apiRequest(`/api/mods/${mod.id}`, { method: "DELETE" });
         } catch (error) {
-          alert(error.message);
+          showActionNotice("Deletion failed", error.message);
           return;
         }
       }
@@ -1168,6 +1201,7 @@ document.querySelector("#pending-mods").addEventListener("click", (event) => {
       localStorage.setItem("beammods-mods", JSON.stringify(mods.filter((item) => !defaultMods.includes(item))));
       renderPendingMods();
       renderMods();
+      showActionNotice("Mod deleted", `"${mod.name}" was removed successfully.`);
     });
     return;
   }
@@ -1176,14 +1210,23 @@ document.querySelector("#pending-mods").addEventListener("click", (event) => {
   renderMods();
 });
 function askConfirmation(title, message, onConfirm) {
+  confirmModal.querySelector(".eyebrow").textContent = "Please confirm";
   document.querySelector("#confirm-title").textContent = title;
   document.querySelector("#confirm-message").textContent = message;
+  document.querySelector("#confirm-cancel").hidden = false;
+  document.querySelector("#confirm-accept").textContent = "Confirm";
   confirmModal.hidden = false;
   const accept = document.querySelector("#confirm-accept");
   const cancel = document.querySelector("#confirm-cancel");
   const close = () => { confirmModal.hidden = true; accept.onclick = null; cancel.onclick = null; };
   cancel.onclick = close;
   accept.onclick = () => { close(); onConfirm(); };
+}
+function showActionNotice(title, message) {
+  askConfirmation(title, message, () => {});
+  confirmModal.querySelector(".eyebrow").textContent = "BeamMods update";
+  document.querySelector("#confirm-cancel").hidden = true;
+  document.querySelector("#confirm-accept").textContent = "Done";
 }
 document.querySelector("#browse-link").addEventListener("click", (event) => {
   event.preventDefault();
@@ -1250,7 +1293,7 @@ form.addEventListener("submit", async (event) => {
   securityModal.querySelector(".security-modal").classList.remove("is-complete");
   securityClose.hidden = true;
   securityClose.textContent = "Continue to BeamMods";
-  document.querySelector("#security-title").innerHTML = "Checking your <em>file.</em>";
+  document.querySelector("#security-title").innerHTML = source === "link" ? "Checking your <em>link.</em>" : "Checking your <em>file.</em>";
   uploadStatus.textContent = "Checking your upload...";
   uploadStatus.className = "upload-status";
   const publishButton = document.querySelector("#publish-submit");
@@ -1320,17 +1363,10 @@ async function finishUpload(data, file, images, source, downloadUrl) {
       });
       resetUploadForm();
       uploadModal.hidden = true;
+      securityModal.hidden = true;
       renderMods();
       showDashboard();
-      const securityCard = securityModal.querySelector(".security-modal");
-      securityCard.classList.add("is-complete");
-      document.querySelector("#security-title").innerHTML = "Mod sent for <em>review.</em>";
-      document.querySelector("#security-message").textContent = `"${remoteMod.name}" was uploaded successfully.`;
-      document.querySelector("#security-progress").style.width = "100%";
-      securityClose.hidden = false;
-      uploadStatus.textContent = "The owner must approve this mod before it becomes public. Review usually takes a few hours.";
-      uploadStatus.className = "upload-status success";
-      securityModal.hidden = false;
+      showUploadConfirmation(remoteMod.name, source);
     } catch (error) {
       securityMessage.textContent = error.message || "The mod could not be submitted. Please try again.";
       securityProgress.style.width = "100%";
@@ -1395,6 +1431,8 @@ async function finishUpload(data, file, images, source, downloadUrl) {
   showUploadMessage(isOwner
     ? `"${newMod.name}" passed the browser safety checks and is now published.`
     : `"${newMod.name}" was submitted successfully. The owner must approve it before it becomes public. Please allow a few hours for review.`, "success");
+  uploadModal.hidden = true;
+  showUploadConfirmation(newMod.name, source);
 }
 
 function fileToDataUrl(file) {

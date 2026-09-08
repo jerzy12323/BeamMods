@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260908-6">
+  <link rel="stylesheet" href="styles.css?v=20260908-9">
 </head>
 <body>
   <div class="noise"></div>
@@ -21,6 +21,9 @@
       <a class="active" id="browse-link" href="#mods">Browse mods</a>
       <a id="how-link" href="#how-it-works">How it works</a>
     </nav>
+    <a class="discord-button" href="https://discord.gg/bnqtqgaSx" target="_blank" rel="noopener noreferrer" aria-label="Join the BeamMods Discord server">
+      <span aria-hidden="true">◈</span> Discord
+    </a>
     <button class="account-button" data-open-auth><span class="account-avatar" id="account-avatar" aria-hidden="true">?</span><span id="account-label">Sign in</span></button>
     <button class="upload-button" data-open-upload>
       <span>+</span> Upload mod
@@ -234,6 +237,15 @@
       <button class="submit-button security-close" id="security-close" type="button" hidden>Continue to BeamMods <span>↗</span></button>
     </section>
   </div>
+  <div class="modal-backdrop" id="upload-confirmation" hidden>
+    <section class="modal upload-confirmation" role="status" aria-live="polite">
+      <div class="confirmation-mark">✓</div>
+      <p class="eyebrow">Submission received</p>
+      <h2>Your mod is <em>in review.</em></h2>
+      <p id="upload-confirmation-text">The owner will check your submission before it becomes public.</p>
+      <div class="confirmation-note"><strong>What happens next?</strong><span>BeamMods owner review usually takes a few hours. You will see the mod in the library after it is approved.</span></div>
+    </section>
+  </div>
   <div class="modal-backdrop" id="details-modal" hidden>
     <section class="modal details-modal" role="dialog" aria-modal="true" aria-labelledby="details-title">
       <button class="modal-close" data-close-details aria-label="Close">×</button>
@@ -332,6 +344,6 @@
       <p class="form-note">This static demo does not process legal notices automatically. A production site should route DMCA requests to the site owner or designated agent.</p>
     </section>
   </div>
-  <script src="app.js?v=20260908-6"></script>
+  <script src="app.js?v=20260908-9"></script>
 </body>
 </html>
