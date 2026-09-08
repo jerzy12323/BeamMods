@@ -912,6 +912,17 @@ function resetUploadForm() {
   document.querySelector("#publish-submit").innerHTML = "Publish mod <span>↗</span>";
 }
 
+function showUploadMessage(message, type = "") {
+  uploadStatus.textContent = message;
+  uploadStatus.className = `upload-status ${type}`.trim();
+}
+
+function showAuthMessage(message, type = "error") {
+  const authError = document.querySelector("#auth-error");
+  authError.textContent = message;
+  authError.className = `auth-message ${type}`.trim();
+}
+
 function updateAuthForm() {
   const register = authMode === "register";
   const emailInput = document.querySelector("[name=email]");
@@ -927,7 +938,7 @@ function updateAuthForm() {
 document.querySelectorAll("[data-auth-tab]").forEach((tab) => {
   tab.addEventListener("click", () => {
     authMode = tab.dataset.authTab;
-    document.querySelector("#auth-error").textContent = "";
+    showAuthMessage("");
     document.querySelectorAll(".auth-tab").forEach((item) => item.classList.toggle("active", item === tab));
     updateAuthForm();
   });
@@ -935,7 +946,7 @@ document.querySelectorAll("[data-auth-tab]").forEach((tab) => {
 
 authForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  document.querySelector("#auth-error").textContent = "";
+  showAuthMessage("");
   const data = new FormData(authForm);
   const users = getUsers();
   const username = String(data.get("username")).trim();
@@ -955,7 +966,7 @@ authForm.addEventListener("submit", async (event) => {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Authentication failed.");
       if (authMode === "register") {
-        document.querySelector("#auth-error").textContent = result.message || "Check your email to activate your account.";
+        showAuthMessage(result.message || "Registration received. Check your email to activate your account.", "success");
         authForm.reset();
         return;
       }
@@ -971,13 +982,13 @@ authForm.addEventListener("submit", async (event) => {
       updateAccountButton();
       showDashboard();
     } catch (error) {
-      document.querySelector("#auth-error").textContent = error.message;
+      showAuthMessage(error.message);
     }
     return;
   }
   if (authMode === "register") {
     if (users.some((user) => user.username.toLowerCase() === username.toLowerCase())) {
-      document.querySelector("#auth-error").textContent = "That username is already taken.";
+      showAuthMessage("That username is already taken.");
       return;
     }
     const user = { username, email: data.get("email"), password, avatar: "", createdAt: new Date().toISOString() };
@@ -991,7 +1002,7 @@ authForm.addEventListener("submit", async (event) => {
   } else {
     const user = users.find((item) => item.username.toLowerCase() === username.toLowerCase() && item.password === password);
     if (!user) {
-      document.querySelector("#auth-error").textContent = "Incorrect username or password.";
+      showAuthMessage("Incorrect username or password.");
       return;
     }
     currentUser = user;
@@ -1013,11 +1024,11 @@ async function activateAccountFromLink() {
     authMode = "login";
     authModal.hidden = false;
     updateAuthForm();
-    document.querySelector("#auth-error").textContent = result.message;
+    showAuthMessage(result.message, "success");
     window.history.replaceState({}, document.title, window.location.pathname);
   } catch (error) {
     authModal.hidden = false;
-    document.querySelector("#auth-error").textContent = error.message;
+    showAuthMessage(error.message);
   }
 }
 
@@ -1200,15 +1211,15 @@ form.addEventListener("submit", (event) => {
   const source = data.get("sourceType");
   const extensionIsZip = file && file.name.toLowerCase().endsWith(".zip");
   if (source === "file" && (!file || !file.size || !extensionIsZip || file.size > 2 * 1024 * 1024 * 1024)) {
-    alert("Security check failed: choose a ZIP file smaller than 2 GB.");
+    showUploadMessage("Security check failed: choose a ZIP file smaller than 2 GB.", "error");
     return;
   }
   if (images.some((image) => image.size > 8 * 1024 * 1024)) {
-    alert("Each preview image must be smaller than 8 MB.");
+    showUploadMessage("Each preview image must be smaller than 8 MB.", "error");
     return;
   }
   if (source === "link" && !/^https?:\/\//i.test(downloadUrl)) {
-    alert("Please enter a valid HTTPS download link.");
+    showUploadMessage("Please enter a valid HTTPS download link.", "error");
     return;
   }
   securityModal.hidden = false;
@@ -1235,7 +1246,7 @@ async function finishUpload(data, file, images, source, downloadUrl) {
     securityModal.hidden = true;
     document.querySelector("#publish-submit").disabled = false;
     document.querySelector("#publish-submit").innerHTML = "Publish mod <span>↗</span>";
-    alert(error.message);
+    showUploadMessage(error.message, "error");
     return;
   }
   document.querySelector("#security-progress").style.width = "100%";
@@ -1279,14 +1290,12 @@ async function finishUpload(data, file, images, source, downloadUrl) {
         fileName: remoteMod.original_filename || ""
       });
       resetUploadForm();
-      uploadModal.hidden = true;
+      uploadModal.hidden = false;
       renderMods();
       showDashboard();
-      alert(`"${remoteMod.name}" was uploaded successfully. It is private until the BeamMods owner approves it.`);
+      showUploadMessage(`"${remoteMod.name}" was submitted successfully. The owner must approve it before it becomes public. Please allow a few hours for review.`, "success");
     } catch (error) {
-      uploadStatus.textContent = error.message;
-      uploadStatus.className = "upload-status error";
-      alert(error.message);
+      showUploadMessage(error.message, "error");
     }
     return;
   }
@@ -1323,18 +1332,18 @@ async function finishUpload(data, file, images, source, downloadUrl) {
     localStorage.setItem("beammods-mods", JSON.stringify(mods.filter((mod) => !defaultMods.includes(mod))));
   } catch (error) {
     mods = mods.filter((mod) => mod !== newMod);
-    alert("This upload is too large for browser storage. Try a smaller preview image.");
+    showUploadMessage("This upload is too large for browser storage. Try a smaller preview image.", "error");
     return;
   }
   resetUploadForm();
-  uploadModal.hidden = true;
+  uploadModal.hidden = false;
   renderMods();
   updateAccountButton();
   updateAuthForm();
   showDashboard();
-  alert(isOwner
+  showUploadMessage(isOwner
     ? `"${newMod.name}" passed the browser safety checks and is now published.`
-    : `"${newMod.name}" passed the browser safety checks and was submitted for owner approval. It will appear publicly after approval.`);
+    : `"${newMod.name}" was submitted successfully. The owner must approve it before it becomes public. Please allow a few hours for review.`, "success");
 }
 
 function fileToDataUrl(file) {
