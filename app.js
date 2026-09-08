@@ -958,7 +958,7 @@ function renderPreviewImageList() {
   imageFileList.hidden = !selectedPreviewImages.length;
 }
 sourceType.addEventListener("change", () => { linkField.hidden = sourceType.value !== "link"; });
-fileInput.required = true;
+fileInput.required = false;
 sourceType.addEventListener("change", () => { fileInput.required = sourceType.value === "file"; });
 function setZipFile(file) {
   if (!file) return;
@@ -977,13 +977,13 @@ function setZipFile(file) {
   uploadStatus.className = "upload-status success";
 }
 fileInput.addEventListener("change", () => setZipFile(fileInput.files[0]));
-clearZipButton.addEventListener("click", (event) => {
+clearZipButton?.addEventListener("click", (event) => {
   event.preventDefault();
   event.stopPropagation();
   fileInput.value = "";
-  fileName.textContent = "Drop a ZIP here or click to browse";
-  fileInput.closest(".file-drop").classList.remove("has-file");
-  clearZipButton.hidden = true;
+  if (fileName) fileName.textContent = "Drop a ZIP here or click to browse";
+  fileInput.closest(".file-drop")?.classList.remove("has-file");
+  if (clearZipButton) clearZipButton.hidden = true;
   uploadStatus.textContent = "ZIP removed. Choose the correct file before publishing.";
   uploadStatus.className = "upload-status";
 });
@@ -1126,7 +1126,7 @@ document.querySelectorAll("[data-close-details]").forEach((button) => {
 [uploadModal, detailsModal].forEach((modal) => {
   modal.addEventListener("click", (event) => {
     if (event.target === modal) {
-      if (modal === uploadModal) resetUploadForm();
+      if (modal === uploadModal) return;
       modal.hidden = true;
     }
   });
@@ -1165,8 +1165,8 @@ function resetUploadForm() {
   document.querySelector("#image-file-list").hidden = true;
   document.querySelector("#image-file-list").innerHTML = "";
   imageName.textContent = "Drop screenshots here or click to browse";
-  fileName.textContent = "Drop a ZIP here or click to browse";
-  clearZipButton.hidden = true;
+  if (fileName) fileName.textContent = "Drop a ZIP here or click to browse";
+  if (clearZipButton) clearZipButton.hidden = true;
   document.querySelectorAll(".upload-drop").forEach((drop) => drop.classList.remove("has-file", "is-dragging"));
   uploadStatus.textContent = "";
   uploadStatus.className = "upload-status";
