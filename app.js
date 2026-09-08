@@ -12,6 +12,9 @@ const grid = document.querySelector("#mods-grid");
 const emptyState = document.querySelector("#empty-state");
 const searchInput = document.querySelector("#search-input");
 const sortSelect = document.querySelector("#sort-select");
+const pagination = document.querySelector("#library-pagination");
+let currentLibraryPage = 1;
+const modsPerPage = 6;
 const panelSearch = document.querySelector("#panel-search");
 const authorSearch = document.querySelector("#author-search");
 const categorySelect = document.querySelector("#category-select");
@@ -243,7 +246,11 @@ function renderMods() {
       askConfirmation("Bug report sent", "Thanks. The owner can now review this report and investigate the mod.", showLibrary);
     });
 
-  grid.innerHTML = visible.map((mod) => `
+  const pageCount = 3;
+  currentLibraryPage = Math.min(currentLibraryPage, pageCount);
+  const pageStart = (currentLibraryPage - 1) * modsPerPage;
+  const pageMods = visible.slice(pageStart, pageStart + modsPerPage);
+  grid.innerHTML = pageMods.map((mod) => `
     <article class="mod-card" data-mod-name="${escapeHtml(mod.name)}" tabindex="0" role="button" aria-label="View ${escapeHtml(mod.name)} details">
       <div class="mod-cover ${mod.cover} ${mod.image ? "has-image" : ""}" ${mod.image ? `style="background-image: linear-gradient(20deg, rgba(0,0,0,.25), transparent 62%), url('${escapeHtml(mod.image)}')"` : ""}>
         <span class="mod-badge">${escapeHtml(mod.category)}</span>
@@ -261,7 +268,13 @@ function renderMods() {
       <button class="card-details-button" type="button">View page &amp; details <span>→</span></button>
     </article>
   `).join("");
-  emptyState.hidden = visible.length > 0;
+  emptyState.hidden = pageMods.length > 0;
+  pagination.hidden = false;
+  pagination.querySelectorAll(".page-button").forEach((button) => {
+    const page = Number(button.dataset.page);
+    button.disabled = false;
+    button.classList.toggle("active", page === currentLibraryPage);
+  });
 }
 
 function escapeHtml(value) {
@@ -277,6 +290,14 @@ function formatDisplayName(value) {
     if (/^g\d{2,3}$/i.test(word)) return word.toUpperCase();
     return lower.charAt(0).toUpperCase() + lower.slice(1);
   });
+}
+
+function getDownloadFilename(response, fallback) {
+  const header = response.headers.get("content-disposition") || "";
+  const encoded = header.match(/filename\*=UTF-8''([^;]+)/i);
+  if (encoded) return decodeURIComponent(encoded[1]);
+  const plain = header.match(/filename="?([^";]+)"?/i);
+  return plain ? plain[1] : fallback;
 }
 
 function openFileDatabase() {
@@ -504,10 +525,15 @@ function openDetails(mod) {
   downloadButton.onclick = async () => {
     if (remoteMode && mod.id) {
       try {
-        const blob = await apiRequest(`/api/mods/${mod.id}/download`);
+        const response = await fetch(`/api/mods/${mod.id}/download`, { credentials: "include" });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload.error || `Download failed (${response.status}).`);
+        }
+        const blob = await response.blob();
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = `${String(mod.name || "beammods-mod").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.zip`;
+        link.download = getDownloadFilename(response, mod.fileName || "beammods-mod.zip");
         link.click();
         setTimeout(() => URL.revokeObjectURL(link.href), 1000);
       } catch (error) {
@@ -539,7 +565,7 @@ function openDetails(mod) {
       }
       const link = document.createElement("a");
       link.href = URL.createObjectURL(file);
-      link.download = `${String(mod.name || "beammods-mod").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.zip`;
+      link.download = file.name || mod.fileName || `${String(mod.name || "beammods-mod").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.zip`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     } else if (mod.downloadUrl) {
@@ -572,21 +598,28 @@ document.querySelectorAll(".filter").forEach((button) => {
     button.classList.add("active");
     activeFilter = button.dataset.filter;
     categorySelect.value = activeFilter;
+    currentLibraryPage = 1;
     renderMods();
   });
 });
 searchInput.addEventListener("input", () => {
   panelSearch.value = searchInput.value;
+  currentLibraryPage = 1;
   renderMods();
 });
 panelSearch.addEventListener("input", () => {
   searchInput.value = panelSearch.value;
+  currentLibraryPage = 1;
   renderMods();
 });
-authorSearch.addEventListener("input", renderMods);
+authorSearch.addEventListener("input", () => {
+  currentLibraryPage = 1;
+  renderMods();
+});
 categorySelect.addEventListener("change", () => {
   activeFilter = categorySelect.value;
   document.querySelectorAll(".filter").forEach((button) => button.classList.toggle("active", button.dataset.filter === activeFilter));
+  currentLibraryPage = 1;
   renderMods();
 });
 document.querySelector("#clear-search").addEventListener("click", () => {
@@ -595,10 +628,21 @@ document.querySelector("#clear-search").addEventListener("click", () => {
   authorSearch.value = "";
   categorySelect.value = "All";
   activeFilter = "All";
+  currentLibraryPage = 1;
   document.querySelectorAll(".filter").forEach((button) => button.classList.toggle("active", button.dataset.filter === "All"));
   renderMods();
 });
-sortSelect.addEventListener("change", renderMods);
+sortSelect.addEventListener("change", () => {
+  currentLibraryPage = 1;
+  renderMods();
+});
+pagination.addEventListener("click", (event) => {
+  const button = event.target.closest(".page-button");
+  if (!button || button.disabled) return;
+  currentLibraryPage = Number(button.dataset.page);
+  renderMods();
+  document.querySelector("#mods").scrollIntoView({ behavior: "smooth", block: "start" });
+});
 
 const uploadModal = document.querySelector("#upload-modal");
 const detailsModal = document.querySelector("#details-modal");
@@ -617,9 +661,11 @@ const sourceType = document.querySelector("#source-type");
 const linkField = document.querySelector("#download-link-field");
 const fileInput = form.querySelector('input[name="file"]');
 const fileName = document.querySelector("#file-name");
+const clearZipButton = document.querySelector("#clear-zip");
 const imageInput = document.querySelector("#image-input");
 const imageName = document.querySelector("#image-name");
 let selectedPreviewImages = [];
+const uploadStatus = document.querySelector("#upload-status");
 function renderPreviewImageList() {
   const imageFileList = document.querySelector("#image-file-list");
   imageName.textContent = selectedPreviewImages.length
@@ -631,32 +677,81 @@ function renderPreviewImageList() {
 sourceType.addEventListener("change", () => { linkField.hidden = sourceType.value !== "link"; });
 fileInput.required = true;
 sourceType.addEventListener("change", () => { fileInput.required = sourceType.value === "file"; });
-fileInput.addEventListener("change", () => {
-  const file = fileInput.files[0];
-  fileName.textContent = file ? `${file.name} · ${formatBytes(file.size)}` : "Choose a ZIP file (when uploading locally)";
+function setZipFile(file) {
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith(".zip")) {
+    uploadStatus.textContent = "Only ZIP files can be uploaded.";
+    uploadStatus.className = "upload-status error";
+    return;
+  }
+  const transfer = new DataTransfer();
+  transfer.items.add(file);
+  fileInput.files = transfer.files;
+  fileName.textContent = `${file.name} · ${formatBytes(file.size)}`;
+  fileInput.closest(".file-drop").classList.add("has-file");
+  clearZipButton.hidden = false;
+  uploadStatus.textContent = "ZIP ready to publish.";
+  uploadStatus.className = "upload-status success";
+}
+fileInput.addEventListener("change", () => setZipFile(fileInput.files[0]));
+clearZipButton.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  fileInput.value = "";
+  fileName.textContent = "Drop a ZIP here or click to browse";
+  fileInput.closest(".file-drop").classList.remove("has-file");
+  clearZipButton.hidden = true;
+  uploadStatus.textContent = "ZIP removed. Choose the correct file before publishing.";
+  uploadStatus.className = "upload-status";
 });
-imageInput.addEventListener("change", () => {
-  const pickedImages = Array.from(imageInput.files);
+imageInput.addEventListener("change", async () => {
+ try {
+   await addPreviewImages(Array.from(imageInput.files));
+ } catch (error) {
+   uploadStatus.textContent = error.message;
+   uploadStatus.className = "upload-status error";
+ }
+});
+async function addPreviewImages(pickedImages) {
   const images = [...selectedPreviewImages];
-  pickedImages.forEach((image) => {
-    if (!images.some((existing) => existing.name === image.name && existing.size === image.size && existing.lastModified === image.lastModified)) {
-      images.push(image);
-    }
-  });
+ for (const image of pickedImages) {
+   if (!["image/png", "image/jpeg", "image/webp"].includes(image.type)) {
+     imageInput.value = "";
+     uploadStatus.textContent = "Use PNG, JPG or WEBP images only.";
+     uploadStatus.className = "upload-status error";
+     return;
+   }
+   const dimensions = await getImageDimensions(image);
+   if (dimensions.width < 640 || dimensions.height < 360) {
+     imageInput.value = "";
+     uploadStatus.textContent = `${image.name} is ${dimensions.width} × ${dimensions.height}px. Use an image at least 640 × 360px.`;
+     uploadStatus.className = "upload-status error";
+     return;
+   }
+   if (!images.some((existing) => existing.name === image.name && existing.size === image.size && existing.lastModified === image.lastModified)) {
+     images.push(image);
+   }
+ }
   const imageFileList = document.querySelector("#image-file-list");
-  if (images.length > 5 || images.some((item) => !["image/png", "image/jpeg", "image/webp"].includes(item.type))) {
+  if (images.length > 5) {
     imageInput.value = "";
     imageName.textContent = "Optional JPG, PNG or WEBP · up to 5 images";
     imageFileList.hidden = true;
     imageFileList.innerHTML = "";
     selectedPreviewImages = [];
-    alert("Choose up to 5 PNG, JPG or WEBP preview images.");
+    uploadStatus.textContent = "Choose up to 5 preview images.";
+    uploadStatus.className = "upload-status error";
     return;
   }
   selectedPreviewImages = images;
   renderPreviewImageList();
   imageInput.value = "";
-});
+  imageInput.closest(".file-drop").classList.toggle("has-file", selectedPreviewImages.length > 0);
+  if (selectedPreviewImages.length) {
+    uploadStatus.textContent = `${selectedPreviewImages.length} preview image${selectedPreviewImages.length === 1 ? "" : "s"} ready.`;
+    uploadStatus.className = "upload-status success";
+  }
+}
 document.querySelector("#image-file-list").addEventListener("click", (event) => {
   const button = event.target.closest(".remove-image");
   if (!button) return;
@@ -665,6 +760,23 @@ document.querySelector("#image-file-list").addEventListener("click", (event) => 
   selectedPreviewImages.splice(Number(button.dataset.imageIndex), 1);
   imageInput.value = "";
   renderPreviewImageList();
+  imageInput.closest(".file-drop").classList.toggle("has-file", selectedPreviewImages.length > 0);
+});
+document.querySelectorAll(".upload-drop").forEach((drop) => {
+  drop.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    drop.classList.add("is-dragging");
+  });
+  ["dragleave", "drop"].forEach((type) => drop.addEventListener(type, () => drop.classList.remove("is-dragging")));
+  drop.addEventListener("drop", (event) => {
+    event.preventDefault();
+    const files = Array.from(event.dataTransfer.files);
+    if (drop.dataset.dropTarget === "file") setZipFile(files[0]);
+    else addPreviewImages(files).catch((error) => {
+      uploadStatus.textContent = error.message;
+      uploadStatus.className = "upload-status error";
+    });
+  });
 });
 document.querySelector("#profile-image-input").addEventListener("change", async (event) => {
   const image = event.target.files[0];
@@ -723,14 +835,17 @@ document.querySelectorAll("[data-open-auth]").forEach((button) => {
   });
 });
 document.querySelectorAll("[data-close-upload]").forEach((button) => {
-  button.addEventListener("click", () => { uploadModal.hidden = true; });
+  button.addEventListener("click", () => { resetUploadForm(); uploadModal.hidden = true; });
 });
 document.querySelectorAll("[data-close-details]").forEach((button) => {
   button.addEventListener("click", () => { detailsModal.hidden = true; });
 });
 [uploadModal, detailsModal].forEach((modal) => {
   modal.addEventListener("click", (event) => {
-    if (event.target === modal) modal.hidden = true;
+    if (event.target === modal) {
+      if (modal === uploadModal) resetUploadForm();
+      modal.hidden = true;
+    }
   });
 });
 securityModal.addEventListener("click", (event) => {
@@ -738,6 +853,7 @@ securityModal.addEventListener("click", (event) => {
 });
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
+    resetUploadForm();
     uploadModal.hidden = true;
     detailsModal.hidden = true;
     securityModal.hidden = true;
@@ -747,6 +863,23 @@ document.addEventListener("keydown", (event) => {
     dmcaModal.hidden = true;
   }
 });
+
+function resetUploadForm() {
+  form.reset();
+  selectedPreviewImages = [];
+  imageInput.value = "";
+  fileInput.value = "";
+  document.querySelector("#image-file-list").hidden = true;
+  document.querySelector("#image-file-list").innerHTML = "";
+  imageName.textContent = "Drop screenshots here or click to browse";
+  fileName.textContent = "Drop a ZIP here or click to browse";
+  clearZipButton.hidden = true;
+  document.querySelectorAll(".upload-drop").forEach((drop) => drop.classList.remove("has-file", "is-dragging"));
+  uploadStatus.textContent = "";
+  uploadStatus.className = "upload-status";
+  document.querySelector("#publish-submit").disabled = false;
+  document.querySelector("#publish-submit").innerHTML = "Publish mod <span>↗</span>";
+}
 
 function updateAuthForm() {
   const register = authMode === "register";
@@ -1021,6 +1154,8 @@ form.addEventListener("submit", (event) => {
     return;
   }
   securityModal.hidden = false;
+  uploadStatus.textContent = "Checking your upload...";
+  uploadStatus.className = "upload-status";
   const publishButton = document.querySelector("#publish-submit");
   publishButton.disabled = true;
   publishButton.innerHTML = "Preparing your upload <span>…</span>";
@@ -1032,6 +1167,7 @@ form.addEventListener("submit", (event) => {
 
 async function finishUpload(data, file, images, source, downloadUrl) {
   document.querySelector("#security-message").textContent = "Optimizing preview images...";
+  uploadStatus.textContent = "Optimizing preview images...";
   document.querySelector("#security-progress").style.width = "45%";
   const validImages = images.filter((image) => image && image.size).slice(0, 5);
   let imageUrls;
@@ -1049,10 +1185,14 @@ async function finishUpload(data, file, images, source, downloadUrl) {
   document.querySelector("#publish-submit").disabled = false;
   document.querySelector("#publish-submit").innerHTML = "Publish mod <span>↗</span>";
   if (remoteMode) {
+    uploadStatus.textContent = "Sending your mod to the community library...";
     const upload = new FormData();
     ["name", "category", "author", "description", "version", "configs"].forEach((field) => upload.append(field, data.get(field)));
     if (source === "file" && file) upload.append("file", file, file.name);
-    if (validImages[0]) upload.append("preview", validImages[0], validImages[0].name);
+    if (validImages[0]) {
+      const normalizedPreview = await dataUrlToBlob(imageUrls[0]);
+      upload.append("preview", normalizedPreview, `${validImages[0].name.replace(/\.[^.]+$/, "")}.jpg`);
+    }
     try {
       const remoteMod = await apiRequest("/api/mods", { method: "POST", body: upload });
       mods.unshift({
@@ -1077,15 +1217,17 @@ async function finishUpload(data, file, images, source, downloadUrl) {
         image: remoteMod.image_path ? `/uploads/${remoteMod.image_path.split("/").pop()}` : "",
         images: remoteMod.image_path ? [`/uploads/${remoteMod.image_path.split("/").pop()}`] : [],
         downloadUrl: "",
-        fileId: ""
+        fileId: "",
+        fileName: remoteMod.original_filename || ""
       });
-      form.reset();
-      selectedPreviewImages = [];
+      resetUploadForm();
       uploadModal.hidden = true;
       renderMods();
       showDashboard();
-      alert(`"${remoteMod.name}" was uploaded and submitted for owner approval.`);
+      alert(`"${remoteMod.name}" was uploaded successfully. It is private until the BeamMods owner approves it.`);
     } catch (error) {
+      uploadStatus.textContent = error.message;
+      uploadStatus.className = "upload-status error";
       alert(error.message);
     }
     return;
@@ -1115,7 +1257,8 @@ async function finishUpload(data, file, images, source, downloadUrl) {
     images: imageUrls,
     imageNames: validImages.map((image) => image.name),
     downloadUrl: source === "link" ? downloadUrl : "",
-    fileId
+    fileId,
+    fileName: file?.name || ""
   };
   mods.unshift(newMod);
   try {
@@ -1125,11 +1268,7 @@ async function finishUpload(data, file, images, source, downloadUrl) {
     alert("This upload is too large for browser storage. Try a smaller preview image.");
     return;
   }
-  form.reset();
-  selectedPreviewImages = [];
-  document.querySelector("#image-file-list").hidden = true;
-  document.querySelector("#image-file-list").innerHTML = "";
-  imageName.textContent = "Optional JPG, PNG or WEBP · up to 5 images";
+  resetUploadForm();
   uploadModal.hidden = true;
   renderMods();
   updateAccountButton();
@@ -1180,25 +1319,62 @@ async function syncCommunityMods() {
       image: mod.image_path ? `/uploads/${mod.image_path.split("/").pop()}` : "",
       images: mod.image_path ? [`/uploads/${mod.image_path.split("/").pop()}`] : [],
       downloadUrl: "",
-      fileId: ""
+      fileId: "",
+      fileName: mod.original_filename || ""
     }));
   if (!imported.length) return;
   mods = [...imported, ...mods];
   renderMods();
 }
 
-function compressImage(file) {
+function getImageDimensions(file) {
   return new Promise((resolve, reject) => {
+   const image = new Image();
+   const reader = new FileReader();
+   reader.onload = () => {
+     image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
+     image.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+     image.src = reader.result;
+   };
+   reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+   reader.readAsDataURL(file);
+ });
+}
+
+function dataUrlToBlob(dataUrl) {
+ const [header, encoded] = dataUrl.split(",");
+ const mime = header.match(/:(.*?);/)?.[1] || "image/jpeg";
+ const bytes = atob(encoded);
+ const buffer = new Uint8Array(bytes.length);
+ for (let index = 0; index < bytes.length; index += 1) buffer[index] = bytes.charCodeAt(index);
+ return new Blob([buffer], { type: mime });
+}
+
+function compressImage(file) {
+ return new Promise((resolve, reject) => {
     const image = new Image();
     const reader = new FileReader();
     reader.addEventListener("load", () => {
       image.onload = () => {
-        const maxDimension = 1800;
-        const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+        const targetWidth = 1280;
+        const targetHeight = 720;
+        const targetRatio = targetWidth / targetHeight;
+        const sourceRatio = image.naturalWidth / image.naturalHeight;
+        let cropWidth = image.naturalWidth;
+        let cropHeight = image.naturalHeight;
+        let cropX = 0;
+        let cropY = 0;
+        if (sourceRatio > targetRatio) {
+          cropWidth = Math.round(image.naturalHeight * targetRatio);
+          cropX = Math.round((image.naturalWidth - cropWidth) / 2);
+        } else if (sourceRatio < targetRatio) {
+          cropHeight = Math.round(image.naturalWidth / targetRatio);
+          cropY = Math.round((image.naturalHeight - cropHeight) / 2);
+        }
         const canvas = document.createElement("canvas");
-        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-        canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        canvas.getContext("2d").drawImage(image, cropX, cropY, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
         resolve(canvas.toDataURL("image/jpeg", .84));
       };
       image.onerror = () => reject(new Error("Could not optimize preview image."));

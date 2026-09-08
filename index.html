@@ -149,9 +149,17 @@
       </div>
       <div class="mods-grid" id="mods-grid"></div>
       <p class="empty-state" id="empty-state" hidden>No mods found. Try another search.</p>
+      <nav class="library-pagination" id="library-pagination" aria-label="Mod library pages">
+        <button type="button" class="page-button active" data-page="1">1</button>
+        <button type="button" class="page-button" data-page="2">2</button>
+        <button type="button" class="page-button" data-page="3">3</button>
+      </nav>
     </section>
 
     <section class="home-cta" aria-labelledby="home-cta-title">
+      <div class="home-cta-particles" aria-hidden="true">
+        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      </div>
       <div class="home-cta-heading">
         <p class="eyebrow">Find your next ride</p>
         <h2 id="home-cta-title">Your next<br><em>favorite.</em></h2>
@@ -195,11 +203,11 @@
         <div class="form-row">
           <label>Mod version<input name="version" required placeholder="1.0.0"></label>
           <label class="fixed-field">BeamNG version<strong>0.39</strong><input name="gameVersion" type="hidden" value="0.39"></label>
-          <label>Configs<input name="configs" type="number" min="0" required placeholder="4"></label>
+          <label>Configs<input name="configs" type="number" min="0" required placeholder="0" value="0"></label>
         </div>
         <label>Description<textarea name="description" required placeholder="Tell the community what makes this mod special..."></textarea></label>
-        <label class="file-drop">Mod file (.zip)<input name="file" type="file" accept=".zip"><span id="file-name">Choose a ZIP file (when uploading locally)</span></label>
-        <label class="file-drop image-drop">Preview images<input name="image" id="image-input" type="file" accept="image/png,image/jpeg,image/webp" multiple><span id="image-name">Optional JPG, PNG or WEBP · up to 5 images</span><div id="image-file-list" class="image-file-list" hidden></div></label>
+        <label class="file-drop upload-drop" data-drop-target="file"> <span class="drop-icon">↑</span><strong>Mod file (.zip)</strong><input name="file" type="file" accept=".zip"><span id="file-name">Drop a ZIP here or click to browse</span><small>Maximum file size: 2 GB</small><button type="button" class="clear-upload" id="clear-zip" hidden>Remove ZIP</button></label>
+        <label class="file-drop image-drop upload-drop" data-drop-target="images"><span class="drop-icon">▧</span><strong>Preview images</strong><input name="image" id="image-input" type="file" accept="image/png,image/jpeg,image/webp" multiple><span id="image-name">Drop screenshots here or click to browse</span><small>Auto-fitted to 16:9 · minimum 640 × 360 px · up to 5 images</small><div id="image-file-list" class="image-file-list" hidden></div></label>
         <label>Download source
           <select name="sourceType" id="source-type">
             <option value="file">Upload the mod file</option>
@@ -208,8 +216,9 @@
         </label>
         <label id="download-link-field" hidden>Download link<input name="downloadUrl" type="url" placeholder="https://modsfire.com/..."></label>
         <button class="submit-button" id="publish-submit" type="submit">Publish mod <span>↗</span></button>
+        <p class="upload-status" id="upload-status" aria-live="polite"></p>
       </form>
-      <p class="form-note">Every new mod is reviewed by the BeamMods owner before it becomes visible in the public library. Images are optimized automatically before saving.</p>
+      <p class="form-note upload-review-note"><strong>Review first:</strong> check that your ZIP is the correct vehicle or mod before publishing. Every new upload is reviewed by the BeamMods owner and stays private until it is approved.</p>
     </section>
   </div>
   <div class="modal-backdrop" id="security-modal" hidden>

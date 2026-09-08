@@ -21,7 +21,7 @@ from email.parser import BytesParser
 from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 ROOT = Path(__file__).resolve().parent
 DATA = Path(os.environ.get("DATA_DIR", str(ROOT / "data")))
@@ -109,7 +109,7 @@ def init_db():
               approved INTEGER NOT NULL DEFAULT 0, download_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS mod_versions (
               id INTEGER PRIMARY KEY, mod_id INTEGER NOT NULL REFERENCES mods(id) ON DELETE CASCADE,
-              version TEXT NOT NULL, zip_path TEXT NOT NULL, sha256 TEXT NOT NULL, created_at TEXT NOT NULL);
+              version TEXT NOT NULL, zip_path TEXT NOT NULL, original_filename TEXT, sha256 TEXT NOT NULL, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS comments (
               id INTEGER PRIMARY KEY, mod_id INTEGER NOT NULL REFERENCES mods(id) ON DELETE CASCADE,
               user_id INTEGER NOT NULL REFERENCES users(id), body TEXT NOT NULL, created_at TEXT NOT NULL);
@@ -131,7 +131,7 @@ def init_db():
               category TEXT NOT NULL, author TEXT NOT NULL, description TEXT NOT NULL, version TEXT NOT NULL, configs INTEGER NOT NULL DEFAULT 0,
               image_path TEXT, approved INTEGER NOT NULL DEFAULT 0, download_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS mod_versions (id SERIAL PRIMARY KEY, mod_id INTEGER NOT NULL REFERENCES mods(id) ON DELETE CASCADE,
-              version TEXT NOT NULL, zip_path TEXT NOT NULL, sha256 TEXT NOT NULL, created_at TEXT NOT NULL);
+              version TEXT NOT NULL, zip_path TEXT NOT NULL, original_filename TEXT, sha256 TEXT NOT NULL, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS comments (id SERIAL PRIMARY KEY, mod_id INTEGER NOT NULL REFERENCES mods(id) ON DELETE CASCADE,
               user_id INTEGER NOT NULL REFERENCES users(id), body TEXT NOT NULL, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS ratings (mod_id INTEGER REFERENCES mods(id) ON DELETE CASCADE, user_id INTEGER REFERENCES users(id),
@@ -145,6 +145,11 @@ def init_db():
             for statement in schema.split(";"):
                 if statement.strip():
                     execute(connection, statement)
+        try:
+            execute(connection, "ALTER TABLE mod_versions ADD COLUMN original_filename TEXT")
+        except Exception as error:
+            if "duplicate column" not in str(error).lower() and "already exists" not in str(error).lower():
+                raise
 
 
 def now():
@@ -198,6 +203,18 @@ class Handler(BaseHTTPRequestHandler):
             row = cursor.fetchone()
             return dict(row) if row else None
 
+    def public_user(self):
+        user = self.user()
+        if not user:
+            return None
+        return {
+            "id": user["id"],
+            "username": user["username"],
+            "email": user["email"],
+            "is_owner": user["is_owner"],
+            "created_at": user["created_at"],
+        }
+
     def require_user(self):
         user = self.user()
         if not user:
@@ -207,7 +224,7 @@ class Handler(BaseHTTPRequestHandler):
     def mod(self, mod_id, include_unapproved=False):
         with db() as connection:
             where = "" if include_unapproved else " AND m.approved=1"
-            cursor = execute(connection, "SELECT m.*, u.username, COALESCE(AVG(r.rating),0) AS rating, "
+            cursor = execute(connection, "SELECT m.*, (SELECT original_filename FROM mod_versions WHERE mod_id=m.id ORDER BY id DESC LIMIT 1) AS original_filename, COALESCE(AVG(r.rating),0) AS rating, "
                 "COUNT(DISTINCT r.user_id) AS rating_count, COUNT(DISTINCT f.user_id) AS favorite_count "
                 "FROM mods m JOIN users u ON u.id=m.owner_id LEFT JOIN ratings r ON r.mod_id=m.id "
                 "LEFT JOIN favorites f ON f.mod_id=m.id WHERE m.id=?"+where+" GROUP BY m.id,u.username", (mod_id,))
@@ -219,10 +236,10 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/health":
             return self.send_json(200, {"status": "ok"})
         if parsed.path == "/api/me":
-            return self.send_json(200, self.user())
+            return self.send_json(200, self.public_user())
         if parsed.path == "/api/mods":
             with db() as connection:
-                result = rows(execute(connection, "SELECT m.*, u.username, COALESCE(AVG(r.rating),0) AS rating, "
+                result = rows(execute(connection, "SELECT m.*, (SELECT original_filename FROM mod_versions WHERE mod_id=m.id ORDER BY id DESC LIMIT 1) AS original_filename, u.username, COALESCE(AVG(r.rating),0) AS rating, "
                     "COUNT(DISTINCT f.user_id) AS favorite_count FROM mods m JOIN users u ON u.id=m.owner_id "
                     "LEFT JOIN ratings r ON r.mod_id=m.id LEFT JOIN favorites f ON f.mod_id=m.id WHERE m.approved=1 "
                     "GROUP BY m.id,u.username ORDER BY m.created_at DESC"))
@@ -342,8 +359,8 @@ class Handler(BaseHTTPRequestHandler):
                                   (user["id"], *(str(data[k]).strip() for k in required), int(data.get("configs", 0)), image_path, 0, now()))
                     mod_id = inserted_id(connection, cur)
                     if zip_path:
-                        execute(connection, "INSERT INTO mod_versions(mod_id,version,zip_path,sha256,created_at) VALUES(?,?,?,?,?)",
-                                (mod_id, data["version"], zip_path, hashlib.sha256((DATA / zip_path).read_bytes()).hexdigest(), now()))
+                        execute(connection, "INSERT INTO mod_versions(mod_id,version,zip_path,original_filename,sha256,created_at) VALUES(?,?,?,?,?,?)",
+                                (mod_id, data["version"], zip_path, upload.filename, hashlib.sha256((DATA / zip_path).read_bytes()).hexdigest(), now()))
                 return self.send_json(201, self.mod(mod_id, True))
             if len(parts) >= 4 and parts[1] == "mods" and parts[3] == "comments":
                 data = self.read_json()
@@ -397,12 +414,22 @@ class Handler(BaseHTTPRequestHandler):
 
     def download(self, mod_id):
         with db() as c:
-            version = execute(c, "SELECT zip_path FROM mod_versions WHERE mod_id=? ORDER BY id DESC", (mod_id,)).fetchone()
+            version = execute(c, "SELECT v.zip_path, v.original_filename, m.name AS mod_name "
+                                "FROM mod_versions v JOIN mods m ON m.id=v.mod_id "
+                                "WHERE v.mod_id=? ORDER BY v.id DESC", (mod_id,)).fetchone()
             if not version: return self.send_json(404, {"error": "Download not found"})
             execute(c, "UPDATE mods SET download_count=download_count+1 WHERE id=?", (mod_id,))
-        path = DATA / (version["zip_path"] if isinstance(version, dict) else version[0])
+        zip_path = version["zip_path"] if isinstance(version, dict) else version[0]
+        original_filename = version["original_filename"] if isinstance(version, dict) else version[1]
+        mod_name = version["mod_name"] if isinstance(version, dict) else version[2]
+        filename = Path(original_filename or "").name
+        if not filename.lower().endswith(".zip"):
+            filename = f"{mod_name or 'beammods-mod'}.zip"
+        path = DATA / zip_path
         if not path.is_file(): return self.send_json(404, {"error": "Download not found"})
-        self.send_response(200); self.send_header("Content-Type", "application/zip"); self.send_header("Content-Length", str(path.stat().st_size)); self.end_headers()
+        self.send_response(200); self.send_header("Content-Type", "application/zip")
+        self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{quote(filename)}")
+        self.send_header("Content-Length", str(path.stat().st_size)); self.end_headers()
         with path.open("rb") as stream: shutil.copyfileobj(stream, self.wfile)
 
     def start_session(self, user_id):
