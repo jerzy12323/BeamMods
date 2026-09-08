@@ -1205,6 +1205,7 @@ document.querySelector("#pending-mods").addEventListener("click", (event) => {
       if (remoteMode && mod.id) {
         try {
           await apiRequest(`/api/mods/${mod.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approved: 1 }) });
+          await syncCommunityMods();
         } catch (error) {
           showActionNotice("Approval failed", error.message);
           return;
@@ -1481,6 +1482,19 @@ async function syncCommunityMods() {
   if (!response.ok) throw new Error(`Community mods request failed (${response.status}).`);
   const remoteMods = await response.json();
   if (!Array.isArray(remoteMods)) throw new Error("Community mods response was not a list.");
+  const remoteByName = new Map(remoteMods.map((mod) => [String(mod.name).toLowerCase(), mod]));
+  mods.forEach((localMod) => {
+    const remoteMod = remoteByName.get(String(localMod.name).toLowerCase());
+    if (remoteMod) {
+      localMod.id = remoteMod.id;
+      localMod.approved = true;
+      localMod.owner = remoteMod.username || remoteMod.author;
+      localMod.publishedAt = remoteMod.created_at;
+      localMod.updatedAt = remoteMod.created_at;
+      localMod.downloads = remoteMod.download_count || localMod.downloads || 0;
+      localMod.rating = remoteMod.rating || localMod.rating || "";
+    }
+  });
   const localNames = new Set(mods.map((mod) => String(mod.name).toLowerCase()));
   const imported = remoteMods
     .filter((mod) => !localNames.has(String(mod.name).toLowerCase()))
@@ -1509,8 +1523,8 @@ async function syncCommunityMods() {
       fileId: "",
       fileName: mod.original_filename || ""
     }));
-  if (!imported.length) return;
   mods = [...imported, ...mods];
+  if (!imported.length && !remoteMods.length) return;
   renderMods();
 }
 
