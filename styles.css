@@ -524,7 +524,7 @@ body { background: radial-gradient(circle at 80% -10%, rgba(54, 81, 112, .22), t
 .confirmation-mark { display: grid; width: 58px; height: 58px; margin: 0 auto 20px; place-items: center; border: 1px solid rgba(157,226,64,.65); border-radius: 50%; color: #101820; background: var(--acid); box-shadow: 0 0 0 9px rgba(157,226,64,.1), 0 12px 30px rgba(157,226,64,.18); font-size: 30px; font-weight: 700; }
 .upload-confirmation h2 { margin-bottom: 14px; }
 .upload-confirmation > p:not(.eyebrow) { color: #c8d5df; font-size: 15px; line-height: 1.6; }
-.confirmation-note { display: grid; gap: 7px; margin-top: 26px; border: 1px solid rgba(255,179,93,.28); border-radius: 12px; padding: 16px 18px; color: #cbd8df; background: rgba(255,103,70,.08); font-family: "DM Mono", monospace; font-size: 11px; line-height: 1.55; text-align: left; }
+.confirmation-note { display: grid; gap: 8px; margin-top: 26px; border: 1px solid rgba(255,179,93,.28); border-radius: 12px; padding: 17px 18px; color: #d6e0e6; background: rgba(255,103,70,.08); font-family: "Space Grotesk", sans-serif; font-size: 14px; line-height: 1.55; text-align: left; }
 .confirmation-note strong { color: #ffb35d; font-family: "Space Grotesk", sans-serif; font-size: 13px; }
 .file-drop img { width: 100%; max-height: 130px; border-radius: 8px; object-fit: cover; }
 .modal input, .modal select, .modal textarea, .dashboard-bug-form input, .dashboard-bug-form select, .dashboard-bug-form textarea { border-radius: 8px; border-color: rgba(164,188,212,.26); background: #101d2e; }
@@ -725,6 +725,13 @@ body { background: radial-gradient(circle at 80% -10%, rgba(54, 81, 112, .22), t
 .rating-stars { display: flex; gap: 2px; }
 .rating-stars button { border: 0; padding: 3px; color: #536477; background: transparent; cursor: pointer; font-size: 25px; transition: color .2s ease, transform .2s ease; }
 .rating-stars button:hover, .rating-stars button.selected { color: #ffb35d; transform: translateY(-2px); }
+.dashboard-sidebar #dashboard-email { font-size: 14px; }
+.dashboard-sidebar .danger-action { font-size: 13px; }
+.dashboard-sidebar .form-note,
+.dashboard-content .form-note { font-size: 13px; }
+.main-nav { font-size: 13px; }
+.search-box input { font-size: 14px; }
+.search-box input::placeholder { color: #aebbc3; }
 .details-comments { margin-top: 28px; border-top: 1px solid rgba(168,185,198,.16); padding-top: 24px; }
 .details-comments button, .details-comments textarea, .details-rating button, #details-download { position: relative; z-index: 22; pointer-events: auto; }
 .comments-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }

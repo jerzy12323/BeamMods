@@ -181,7 +181,7 @@ function showDashboard() {
   const ownMods = mods.filter((mod) => mod.owner === currentUser.username);
   document.querySelector("#dashboard-count").textContent = ownMods.length;
   document.querySelector("#profile-mods").innerHTML = ownMods.length
-    ? ownMods.map((mod) => `<div class="profile-mod"><div class="profile-mod-image" style="${mod.image ? `background-image:url('${escapeHtml(mod.image)}')` : ""}">${mod.image ? "" : escapeHtml(mod.icon)}</div><div class="profile-mod-main"><strong>${escapeHtml(mod.name)}</strong><span>${new Date(mod.publishedAt).toLocaleDateString()} · ${escapeHtml(mod.category)} · ${mod.approved === false ? "Pending owner approval" : "Approved"}</span></div><button class="text-button delete-mod" data-mod-name="${escapeHtml(mod.name)}">Delete</button></div>`).join("")
+    ? ownMods.map((mod, index) => `<div class="profile-mod"><div class="profile-mod-image" style="${mod.image ? `background-image:url('${escapeHtml(mod.image)}')` : ""}">${mod.image ? "" : escapeHtml(mod.icon)}</div><div class="profile-mod-main"><strong>${escapeHtml(mod.name)}</strong><span>${new Date(mod.publishedAt).toLocaleDateString()} · ${escapeHtml(mod.category)} · ${mod.approved === false ? "Pending owner approval" : "Approved"}</span></div><button class="text-button delete-mod" data-mod-id="${escapeHtml(mod.id || "")}" data-mod-index="${index}">Delete</button></div>`).join("")
     : "<p class='form-note'>You have not published any mods yet.</p>";
   const isOwner = isOwnerAccount();
   document.querySelector("#owner-panel-link").hidden = !isOwner;
@@ -1143,7 +1143,14 @@ document.querySelector("#profile-mods").addEventListener("click", (event) => {
   if (!button) return;
   event.stopPropagation();
   askConfirmation("Delete this mod?", "This will remove the mod from your account and the community library.", async () => {
-    const target = mods.find((item) => item.name === button.dataset.modName && item.owner === currentUser.username);
+    const ownMods = mods.filter((item) => item.owner === currentUser.username);
+    const target = button.dataset.modId
+      ? ownMods.find((item) => String(item.id) === button.dataset.modId)
+      : ownMods[Number(button.dataset.modIndex)];
+    if (!target) {
+      showActionNotice("Deletion failed", "This mod could not be identified. Refresh the dashboard and try again.");
+      return;
+    }
     if (remoteMode && target?.id) {
       try {
         await apiRequest(`/api/mods/${target.id}`, { method: "DELETE" });
@@ -1152,11 +1159,11 @@ document.querySelector("#profile-mods").addEventListener("click", (event) => {
         return;
       }
     }
-    mods = mods.filter((mod) => !(mod.name === button.dataset.modName && mod.owner === currentUser.username));
+    mods = mods.filter((mod) => mod !== target);
     localStorage.setItem("beammods-mods", JSON.stringify(mods.filter((mod) => !defaultMods.includes(mod))));
     showDashboard();
     renderMods();
-    showActionNotice("Mod deleted", `"${target?.name || button.dataset.modName}" was removed successfully.`);
+    showActionNotice("Mod deleted", `"${target.name}" was removed successfully.`);
   });
 });
 document.querySelector("#pending-mods").addEventListener("click", (event) => {
@@ -1430,7 +1437,7 @@ async function finishUpload(data, file, images, source, downloadUrl) {
   showDashboard();
   showUploadMessage(isOwner
     ? `"${newMod.name}" passed the browser safety checks and is now published.`
-    : `"${newMod.name}" was submitted successfully. The owner must approve it before it becomes public. Please allow a few hours for review.`, "success");
+    : `"${newMod.name}" was submitted successfully and is now waiting for review. We'll publish it after the owner checks the files and details.`, "success");
   uploadModal.hidden = true;
   showUploadConfirmation(newMod.name, source);
 }
