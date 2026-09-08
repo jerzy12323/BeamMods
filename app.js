@@ -6,6 +6,60 @@ const removedDemoEmails = new Set([
   "niewime3@gmail.com",
   "kacperekmisiak407@gmail.com"
 ]);
+function notificationKey() {
+  return currentUser ? String(currentUser.email || currentUser.username).toLowerCase() : "guest";
+}
+function getNotifications() {
+  try {
+    const store = JSON.parse(localStorage.getItem("beammods-notifications") || "{}");
+    return Array.isArray(store[notificationKey()]) ? store[notificationKey()] : [];
+  } catch {
+    return [];
+  }
+}
+function saveNotifications(items) {
+  const store = JSON.parse(localStorage.getItem("beammods-notifications") || "{}");
+  store[notificationKey()] = items.slice(0, 40);
+  localStorage.setItem("beammods-notifications", JSON.stringify(store));
+}
+function addNotification(title, message, id = `${title}-${message}`) {
+  if (!currentUser) return;
+  const items = getNotifications();
+  if (items.some((item) => item.id === id)) return;
+  saveNotifications([{ id, title, message, date: new Date().toISOString(), read: false }, ...items]);
+  renderNotifications();
+}
+function renderNotifications() {
+  const list = document.querySelector("#notifications-list");
+  const count = document.querySelector("#notifications-count");
+  if (!list || !count) return;
+  const items = getNotifications();
+  const unread = items.filter((item) => !item.read).length;
+  count.textContent = unread > 9 ? "9+" : String(unread);
+  count.hidden = !unread;
+  list.innerHTML = items.length
+    ? items.map((item) => `<article class="notification-item${item.read ? "" : " unread"}"><span class="notification-dot"></span><div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.message)}</p><time>${escapeHtml(new Date(item.date).toLocaleString())}</time></div></article>`).join("")
+    : '<p class="notifications-empty">You are all caught up. New account and mod updates will appear here.</p>';
+}
+function markNotificationsRead() {
+  saveNotifications(getNotifications().map((item) => ({ ...item, read: true })));
+  renderNotifications();
+}
+document.querySelector("#notifications-button").addEventListener("click", () => {
+  const panel = document.querySelector("#notifications-panel");
+  const button = document.querySelector("#notifications-button");
+  panel.hidden = !panel.hidden;
+  button.setAttribute("aria-expanded", String(!panel.hidden));
+  if (!panel.hidden) renderNotifications();
+});
+document.querySelector("#notifications-mark-read").addEventListener("click", markNotificationsRead);
+document.addEventListener("click", (event) => {
+  const wrap = document.querySelector(".notifications-wrap");
+  if (!wrap.contains(event.target)) {
+    document.querySelector("#notifications-panel").hidden = true;
+    document.querySelector("#notifications-button").setAttribute("aria-expanded", "false");
+  }
+});
 async function apiRequest(path, options = {}) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), options.timeoutMs || 120000);
@@ -182,6 +236,7 @@ function updateAccountButton() {
   avatar.textContent = currentUser?.avatar ? "" : (currentUser ? currentUser.username.slice(0, 1).toUpperCase() : "?");
   avatar.classList.toggle("has-image", Boolean(currentUser?.avatar));
   avatar.style.backgroundImage = currentUser?.avatar ? `url('${currentUser.avatar}')` : "";
+  renderNotifications();
 }
 
 function updateDashboardAvatar() {
@@ -258,7 +313,14 @@ async function syncUserMods() {
   const localById = new Map(mods.filter((mod) => mod.id).map((mod) => [String(mod.id), mod]));
   remoteMods.forEach((remoteMod) => {
     const localMod = localById.get(String(remoteMod.id));
-    if (localMod) Object.assign(localMod, mapRemoteMod(remoteMod));
+    if (localMod) {
+      const wasPending = localMod.approved === false;
+      const mapped = mapRemoteMod(remoteMod);
+      Object.assign(localMod, mapped);
+      if (wasPending && mapped.approved) {
+        addNotification("Mod approved", `"${mapped.name}" was approved by the owner and is now visible in the public library.`, `approved-${mapped.id}`);
+      }
+    }
     else mods.unshift(mapRemoteMod(remoteMod));
   });
   mods = mods.filter((mod) => !mod.id || remoteById.has(String(mod.id)) || mod.owner !== currentUser.username);
@@ -1384,7 +1446,9 @@ authForm.addEventListener("submit", async (event) => {
         avatar: "",
         createdAt: result.created_at || new Date().toISOString()
       };
+      addNotification("Welcome back", "You have successfully signed in to your BeamMods account.", `login-${currentUser.email}-${Date.now()}`);
       localStorage.setItem("beammods-current-user", JSON.stringify(currentUser));
+      addNotification("Welcome to BeamMods", "You are now signed in and ready to explore the community library.", `login-${currentUser.email}-${Date.now()}`);
       authForm.reset();
       authModal.hidden = true;
       updateAccountButton();
@@ -1806,6 +1870,7 @@ async function finishUpload(data, file, images, source, downloadUrl) {
       securityModal.hidden = true;
       renderMods();
       showDashboard();
+      addNotification("Mod submitted", `"${remoteMod.name}" was sent to the owner for review.`, `submitted-${remoteMod.id}`);
       showUploadConfirmation(remoteMod.name, source);
     } catch (error) {
       securityMessage.textContent = error.message || "The mod could not be submitted. Please try again.";
@@ -1871,6 +1936,11 @@ async function finishUpload(data, file, images, source, downloadUrl) {
   showUploadMessage(isOwner
     ? `"${newMod.name}" passed the browser safety checks and is now published.`
     : `"${newMod.name}" was submitted successfully and is now waiting for review. We'll publish it after the owner checks the files and details.`, "success");
+  addNotification(
+    isOwner ? "Mod published" : "Mod submitted",
+    isOwner ? `"${newMod.name}" is now live in the public library.` : `"${newMod.name}" was sent to the owner for review.`,
+    `submitted-${newMod.name}-${newMod.publishedAt}`
+  );
   uploadModal.hidden = true;
   showUploadConfirmation(newMod.name, source);
 }

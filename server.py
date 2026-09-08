@@ -108,6 +108,7 @@ OWNER_USERNAME = "jerzy"
 OWNER_USERNAMES = {"jerzy", "beamowner"}
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "https://beammods.onrender.com").rstrip("/")
 GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", f"{PUBLIC_URL}/api/auth/google/callback")
+DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
 
 
 def is_owner_user(user):
@@ -135,6 +136,42 @@ def send_email(recipient, subject, body, html=None):
         smtp.starttls()
         smtp.login(username, password)
         smtp.send_message(message)
+
+
+def notify_discord_new_mod(mod):
+    if not DISCORD_WEBHOOK_URL:
+        return
+
+    website_url = f"{PUBLIC_URL}/#mod-{mod['id']}"
+    payload = {
+        "username": "BeamModHub",
+        "embeds": [
+            {
+                "title": "🆕 New mod submitted",
+                "description": f"**{mod['name']}** is now available on BeamModHub.",
+                "color": 0x5865F2,
+                "fields": [
+                    {"name": "Author", "value": str(mod["author"]), "inline": True},
+                    {"name": "Category", "value": str(mod["category"]), "inline": True},
+                    {"name": "Version", "value": str(mod["version"]), "inline": True},
+                ],
+                "url": website_url,
+                "footer": {"text": "BeamModHub • New mod notification"},
+            }
+        ],
+    }
+    request = urllib.request.Request(
+        DISCORD_WEBHOOK_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json", "User-Agent": "BeamModHub/1.0"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            if response.status < 200 or response.status >= 300:
+                raise RuntimeError(f"Discord webhook returned HTTP {response.status}")
+    except (urllib.error.URLError, RuntimeError) as error:
+        print(f"Discord notification failed for mod {mod['id']}: {error}")
 
 
 def init_db():
@@ -759,7 +796,7 @@ class Handler(BaseHTTPRequestHandler):
                     if zip_path:
                         execute(connection, "INSERT INTO mod_versions(mod_id,version,zip_path,original_filename,sha256,created_at) VALUES(?,?,?,?,?,?)",
                                 (mod_id, data["version"], zip_path, upload.filename, hashlib.sha256((DATA / zip_path).read_bytes()).hexdigest(), now()))
-                return self.send_json(201, {
+                response = {
                     "id": mod_id,
                     "name": str(data["name"]).strip(),
                     "category": str(data["category"]).strip(),
@@ -773,7 +810,9 @@ class Handler(BaseHTTPRequestHandler):
                     "username": user["username"],
                     "image_path": image_path,
                     "original_filename": upload.filename if upload else None
-                })
+                }
+                notify_discord_new_mod(response)
+                return self.send_json(201, response)
             if len(parts) >= 4 and parts[1] == "mods" and parts[3] == "comments":
                 data = self.read_json()
                 if not data.get("body", "").strip(): raise ValueError("Comment cannot be empty")
