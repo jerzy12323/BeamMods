@@ -1270,24 +1270,12 @@ form.addEventListener("submit", async (event) => {
 async function finishUpload(data, file, images, source, downloadUrl) {
   const securityMessage = document.querySelector("#security-message");
   const securityProgress = document.querySelector("#security-progress");
-  securityMessage.textContent = "Optimizing preview images...";
-  uploadStatus.textContent = "Optimizing preview images...";
-  document.querySelector("#security-progress").style.width = "45%";
   const validImages = images.filter((image) => image && image.size).slice(0, 5);
-  let imageUrls;
-  try {
-    imageUrls = await Promise.all(validImages.map((image) => compressImage(image)));
-  } catch (error) {
-    document.querySelector("#publish-submit").disabled = false;
-    document.querySelector("#publish-submit").innerHTML = "Publish mod <span>↗</span>";
-    document.querySelector("#security-message").textContent = error.message || "Could not optimize the preview image.";
-    securityClose.hidden = false;
-    securityClose.textContent = "Back to upload";
-    showUploadMessage(error.message || "Could not optimize the preview image.", "error");
-    throw error;
-  }
-  document.querySelector("#security-progress").style.width = "100%";
   if (remoteMode) {
+    securityMessage.textContent = "Preparing your files...";
+    uploadStatus.textContent = "Preparing your files...";
+    securityProgress.style.width = "45%";
+    await new Promise((resolve) => window.setTimeout(resolve, 80));
     securityMessage.textContent = "Sending your mod to the community library...";
     securityProgress.style.width = "82%";
     uploadStatus.textContent = "Sending your mod to the community library...";
@@ -1297,8 +1285,7 @@ async function finishUpload(data, file, images, source, downloadUrl) {
     if (source === "file" && file) upload.append("file", file, file.name);
     try {
       if (validImages[0]) {
-        const normalizedPreview = await dataUrlToBlob(imageUrls[0]);
-        upload.append("preview", normalizedPreview, `${validImages[0].name.replace(/\.[^.]+$/, "")}.jpg`);
+        upload.append("preview", validImages[0], validImages[0].name);
       }
       const remoteMod = await apiRequest("/api/mods", { method: "POST", body: upload });
       mods.unshift({
@@ -1350,6 +1337,11 @@ async function finishUpload(data, file, images, source, downloadUrl) {
     }
     return;
   }
+  securityMessage.textContent = "Optimizing preview images...";
+  uploadStatus.textContent = "Optimizing preview images...";
+  securityProgress.style.width = "45%";
+  const imageUrls = await Promise.all(validImages.map((image) => compressImage(image)));
+  securityProgress.style.width = "100%";
   securityModal.hidden = true;
   document.querySelector("#publish-submit").disabled = false;
   document.querySelector("#publish-submit").innerHTML = "Publish mod <span>↗</span>";
