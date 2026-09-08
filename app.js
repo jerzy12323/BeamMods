@@ -518,6 +518,13 @@ function getDownloadFilename(response, fallback) {
   return plain ? plain[1] : fallback;
 }
 
+function getExternalDownloadUrl(url) {
+  const value = String(url || "").trim();
+  const driveFile = value.match(/^https?:\/\/drive\.google\.com\/file\/d\/([^/]+)/i);
+  if (driveFile) return `https://drive.usercontent.google.com/download?id=${encodeURIComponent(driveFile[1])}&export=download&confirm=t`;
+  return value;
+}
+
 function openFileDatabase() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open("beammods-files", 1);
@@ -741,6 +748,10 @@ function openDetails(mod) {
   const downloadButton = document.querySelector("#details-download");
   downloadButton.innerHTML = `${mod.fileId ? "Download ZIP file" : "Open ModsFire download"} <span>${mod.fileId ? "↓" : "↗"}</span>`;
   downloadButton.onclick = async () => {
+    if (remoteMode && mod.downloadUrl) {
+      window.open(getExternalDownloadUrl(mod.downloadUrl), "_blank", "noopener,noreferrer");
+      return;
+    }
     if (remoteMode && mod.id) {
       try {
         const response = await fetch(`/api/mods/${mod.id}/download`, { credentials: "include" });
@@ -787,7 +798,7 @@ function openDetails(mod) {
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     } else if (mod.downloadUrl) {
-      window.open(mod.downloadUrl, "_blank", "noopener");
+      window.open(getExternalDownloadUrl(mod.downloadUrl), "_blank", "noopener");
     } else {
       alert("This uploaded ZIP is no longer available after refreshing the demo. Please upload it again or add a download link.");
     }
@@ -1737,13 +1748,10 @@ async function syncCommunityMods() {
   mods.forEach((localMod) => {
     const remoteMod = remoteByName.get(String(localMod.name).toLowerCase());
     if (remoteMod) {
-      localMod.id = remoteMod.id;
-      localMod.approved = true;
-      localMod.owner = remoteMod.username || remoteMod.author;
-      localMod.publishedAt = remoteMod.created_at;
-      localMod.updatedAt = remoteMod.created_at;
-      localMod.downloads = remoteMod.download_count || localMod.downloads || 0;
-      localMod.rating = remoteMod.rating || localMod.rating || "";
+      Object.assign(localMod, mapRemoteMod(remoteMod), {
+        image: remoteMod.image_path ? `/uploads/${remoteMod.image_path.split("/").pop()}` : localMod.image,
+        images: remoteMod.image_path ? [`/uploads/${remoteMod.image_path.split("/").pop()}`] : localMod.images
+      });
     }
   });
   const localNames = new Set(mods.map((mod) => String(mod.name).toLowerCase()));
@@ -1770,7 +1778,7 @@ async function syncCommunityMods() {
       updatedAt: mod.created_at,
       image: mod.image_path ? `/uploads/${mod.image_path.split("/").pop()}` : "",
       images: mod.image_path ? [`/uploads/${mod.image_path.split("/").pop()}`] : [],
-      downloadUrl: "",
+      downloadUrl: mod.download_url || "",
       fileId: "",
       fileName: mod.original_filename || ""
     }));
@@ -1861,21 +1869,17 @@ if (hasAuthLink) {
   localStorage.removeItem("beammods-current-user");
 }
 renderMods();
-Promise.all([syncServerSession(), syncCommunityMods(), syncUserMods()]).catch((error) => console.warn("Community sync unavailable:", error.message));
+Promise.resolve()
+  .then(() => syncServerSession())
+  .then(() => Promise.all([syncCommunityMods(), syncUserMods()]))
+  .catch((error) => console.warn("Community sync unavailable:", error.message));
 if (!hasAuthLink) currentUser = readStoredUser();
 updateAccountButton();
 updateAuthForm();
 showGoogleAuthResult();
-const savedView = localStorage.getItem("beammods-current-view");
 if (hasAuthLink) {
   showLibrary();
   if (authLinkParams.has("activation")) activateAccountFromLink();
   if (authLinkParams.has("reset")) openPasswordResetFromLink();
 }
-else if (savedView === "dashboard-owner" && currentUser) { showDashboard(); showOwnerPage(); }
-else if (savedView === "dashboard-bug" && currentUser) { showDashboard(); showDashboardBugView(); }
-else if (savedView === "dashboard-published" && currentUser) showDashboard();
-else if (savedView === "bug-page") showStandalonePage(bugPage);
-else if (savedView === "dmca-page") showStandalonePage(dmcaPage);
-else if (savedView === "how-page") showStandalonePage(howPage);
 else showLibrary();
