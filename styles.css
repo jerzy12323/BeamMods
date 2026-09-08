@@ -274,6 +274,10 @@ h2 { font-size: clamp(43px, 5.2vw, 70px); }
 .forgot-password-link { display: block; margin: 18px auto 0; border: 0; padding: 0; color: #ff9c7f; background: transparent; cursor: pointer; font-family: "DM Mono", monospace; font-size: 11px; }
 .forgot-password-link:hover { color: #fff; text-decoration: underline; }
 .password-reset-modal { width: min(100%, 560px) !important; }
+.activation-result-modal { width: min(100%, 500px); text-align: center; }
+.activation-check { display: grid; width: 64px; height: 64px; margin: 0 auto 22px; place-items: center; border: 1px solid rgba(255,103,70,.55); border-radius: 50%; color: #111a27; background: var(--orange); box-shadow: 0 0 32px rgba(255,103,70,.22); font-size: 34px; font-weight: 700; }
+.activation-result-modal h2 { margin-bottom: 12px; }
+.activation-result-copy { margin: 0 auto 25px; max-width: 370px; color: #b8c6d0; font-size: 15px; line-height: 1.65; }
 .profile-summary { display: flex; align-items: center; justify-content: space-between; margin: 18px 0 35px; padding: 14px; background: #172130; color: #aebbc3; font-family: "DM Mono", monospace; font-size: 10px; }
 .profile-summary button { border: 0; color: var(--orange); background: transparent; cursor: pointer; font-size: 10px; }
 .profile-modal h3 { margin: 0 0 14px; font-size: 13px; }

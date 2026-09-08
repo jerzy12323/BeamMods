@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="BeamMods - a community mod hub for BeamNG.drive">
   <title>BeamMods — BeamNG.drive mods</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260908-1">
+  <link rel="apple-touch-icon" href="favicon.svg?v=20260908-1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -336,6 +338,15 @@
         <p class="auth-message" id="reset-password-message" aria-live="polite"></p>
       </form>
       <p class="form-note">Reset links are valid for one hour and can only be used once.</p>
+    </section>
+  </div>
+  <div class="modal-backdrop" id="activation-result-modal" hidden>
+    <section class="modal activation-result-modal" role="dialog" aria-modal="true" aria-labelledby="activation-result-title">
+      <div class="activation-check">✓</div>
+      <p class="eyebrow">BeamMods account</p>
+      <h2 id="activation-result-title">Account <em>activated.</em></h2>
+      <p id="activation-result-message" class="activation-result-copy"></p>
+      <button class="submit-button" id="activation-login-button" type="button">Continue to sign in <span>↗</span></button>
     </section>
   </div>
   <div class="modal-backdrop confirm-backdrop" id="confirm-modal" hidden>

@@ -125,7 +125,10 @@ const authForm = document.querySelector("#auth-form");
 const passwordResetModal = document.querySelector("#password-reset-modal");
 const forgotPasswordForm = document.querySelector("#forgot-password-form");
 const resetPasswordForm = document.querySelector("#reset-password-form");
+const activationResultModal = document.querySelector("#activation-result-modal");
 let passwordResetToken = "";
+const authLinkParams = new URLSearchParams(window.location.search);
+const hasAuthLink = authLinkParams.has("reset") || authLinkParams.has("activation");
 const dashboardPage = document.querySelector("#dashboard-page");
 const librarySections = document.querySelectorAll("main > section:not(#dashboard-page):not(#bug-page):not(#dmca-page):not(#how-page)");
 
@@ -152,7 +155,7 @@ function isOwnerAccount(user = currentUser) {
 }
 
 function updateAccountButton() {
-  if (!currentUser) currentUser = readStoredUser();
+  if (!currentUser && !hasAuthLink) currentUser = readStoredUser();
   const button = document.querySelector("[data-open-auth]");
   const avatar = document.querySelector("#account-avatar");
   const label = document.querySelector("#account-label");
@@ -1304,25 +1307,31 @@ async function activateAccountFromLink() {
     const response = await fetch(`/api/auth/activate?token=${encodeURIComponent(token)}`);
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Activation failed.");
-    authMode = "login";
-    authModal.hidden = false;
-    updateAuthForm();
-    showAuthMessage(result.message || "Your account is active. Welcome to BeamMods.", "success");
+    activationResultModal.hidden = false;
+    document.querySelector("#activation-result-message").textContent =
+      "Twój adres e-mail został potwierdzony. Konto jest aktywne — możesz teraz bezpiecznie się zalogować.";
     window.history.replaceState({}, document.title, window.location.pathname);
   } catch (error) {
-    authModal.hidden = false;
-    showAuthMessage(error.message);
-  }
-
-  function openPasswordResetFromLink() {
-    const token = new URLSearchParams(window.location.search).get("reset");
-    if (!token) return;
-    openPasswordReset(token);
-    window.history.replaceState({}, document.title, window.location.pathname);
+    activationResultModal.hidden = false;
+    document.querySelector("#activation-result-title").innerHTML = "Activation <em>failed.</em>";
+    document.querySelector("#activation-result-message").textContent = error.message;
   }
 }
 
+function openPasswordResetFromLink() {
+  const token = new URLSearchParams(window.location.search).get("reset");
+  if (!token) return;
+  openPasswordReset(token);
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
+
 document.querySelector("[data-close-auth]").addEventListener("click", showLibrary);
+document.querySelector("#activation-login-button").addEventListener("click", () => {
+  activationResultModal.hidden = true;
+  authMode = "login";
+  authModal.hidden = false;
+  updateAuthForm();
+});
 confirmModal.addEventListener("click", (event) => {
   if (event.target === confirmModal) confirmModal.hidden = true;
 });
@@ -1829,7 +1838,7 @@ function compressImage(file) {
 }
 
 async function syncServerSession() {
-  if (!remoteMode) return;
+  if (!remoteMode || hasAuthLink) return;
   const user = await apiRequest("/api/me");
   if (!user) {
     currentUser = null;
@@ -1847,16 +1856,23 @@ async function syncServerSession() {
   updateAccountButton();
 }
 
+if (hasAuthLink) {
+  currentUser = null;
+  localStorage.removeItem("beammods-current-user");
+}
 renderMods();
 Promise.all([syncServerSession(), syncCommunityMods(), syncUserMods()]).catch((error) => console.warn("Community sync unavailable:", error.message));
-currentUser = readStoredUser();
+if (!hasAuthLink) currentUser = readStoredUser();
 updateAccountButton();
 updateAuthForm();
-activateAccountFromLink();
 showGoogleAuthResult();
-openPasswordResetFromLink();
 const savedView = localStorage.getItem("beammods-current-view");
-if (savedView === "dashboard-owner" && currentUser) { showDashboard(); showOwnerPage(); }
+if (hasAuthLink) {
+  showLibrary();
+  if (authLinkParams.has("activation")) activateAccountFromLink();
+  if (authLinkParams.has("reset")) openPasswordResetFromLink();
+}
+else if (savedView === "dashboard-owner" && currentUser) { showDashboard(); showOwnerPage(); }
 else if (savedView === "dashboard-bug" && currentUser) { showDashboard(); showDashboardBugView(); }
 else if (savedView === "dashboard-published" && currentUser) showDashboard();
 else if (savedView === "bug-page") showStandalonePage(bugPage);
