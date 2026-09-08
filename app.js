@@ -110,7 +110,7 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 function isRemovedLegacyMod(mod) {
-  return /bmw\s*g20/i.test(String(mod.name || ""));
+  return !mod.id && /bmw\s*g20/i.test(String(mod.name || ""));
 }
 
 let mods = JSON.parse(localStorage.getItem("beammods-mods") || "[]")
@@ -458,7 +458,7 @@ function renderMods() {
     .filter((mod) => activeFilter === "All" || mod.category === activeFilter)
     .filter((mod) => categorySelect.value === "All" || mod.category === categorySelect.value)
     .filter((mod) => !query && !panelQuery || `${mod.name} ${mod.author} ${mod.category}`.toLowerCase().includes(query || panelQuery))
-    .filter((mod) => mod.author.toLowerCase().includes(authorQuery))
+    .filter((mod) => String(mod.author || "").toLowerCase().includes(authorQuery))
     .sort((a, b) => {
       if (sortSelect.value === "popular") return Number.parseFloat(b.downloads) - Number.parseFloat(a.downloads);
       if (sortSelect.value === "rating") return Number(b.rating) - Number(a.rating);
