@@ -1938,7 +1938,6 @@ Promise.resolve()
   .then(() => syncServerSession())
   .then(() => Promise.all([syncCommunityMods(), syncUserMods()]))
   .catch((error) => console.warn("Community sync unavailable:", error.message));
-if (!hasAuthLink) currentUser = readStoredUser();
 updateAccountButton();
 updateAuthForm();
 showGoogleAuthResult();

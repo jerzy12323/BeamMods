@@ -482,6 +482,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("Google account email is not verified")
             display_name = str(profile.get("name") or email.split("@", 1)[0]).strip()
             username = self.google_username(display_name, email)
+            created_account = False
             with db() as connection:
                 user = execute(connection, "SELECT * FROM users WHERE lower(email)=lower(?)", (email,)).fetchone()
                 if user:
@@ -497,6 +498,7 @@ class Handler(BaseHTTPRequestHandler):
                         statement += " RETURNING id"
                     cursor = execute(connection, statement, (username, email, password_hash(password), int(owner), 0, activation_token, now()))
                     user_id = inserted_id(connection, cursor)
+                    created_account = True
                     activation_url = f"{PUBLIC_URL}/?activation={quote(activation_token)}"
                     send_email(
                         email,
@@ -514,6 +516,8 @@ class Handler(BaseHTTPRequestHandler):
 <p style="margin:25px 0 0;color:#8293a1;font-size:12px;">This link can be used once.</p></div>
 <p style="margin:24px 0 0;color:#718393;font-size:12px;">BeamMods · Your garage. Unlimited.</p></div></div></body></html>"""
                     )
+            if created_account:
+                return self.redirect_home("google_error=activation_required")
             return self.redirect_home("", self.start_session(user_id))
         except (urllib.error.URLError, json.JSONDecodeError, ValueError, sqlite3.Error, OSError) as error:
             print(f"Google OAuth failed: {error}")
@@ -864,6 +868,10 @@ class Handler(BaseHTTPRequestHandler):
                         execute(connection, "DELETE FROM mod_downloads WHERE mod_id=?", (mod_id,))
                         execute(connection, "DELETE FROM mod_versions WHERE mod_id=?", (mod_id,))
                     execute(connection, "DELETE FROM mods WHERE owner_id=?", (user["id"],))
+                    execute(connection, "DELETE FROM comments WHERE user_id=?", (user["id"],))
+                    execute(connection, "DELETE FROM ratings WHERE user_id=?", (user["id"],))
+                    execute(connection, "DELETE FROM favorites WHERE user_id=?", (user["id"],))
+                    execute(connection, "DELETE FROM mod_downloads WHERE user_id=?", (user["id"],))
                     execute(connection, "DELETE FROM bug_reports WHERE user_id=?", (user["id"],))
                     execute(connection, "DELETE FROM sessions WHERE user_id=?", (user["id"],))
                     execute(connection, "DELETE FROM users WHERE id=?", (user["id"],))
