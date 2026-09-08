@@ -1371,7 +1371,7 @@ async function activateAccountFromLink() {
     if (!response.ok) throw new Error(result.error || "Activation failed.");
     activationResultModal.hidden = false;
     document.querySelector("#activation-result-message").textContent =
-      "Twój adres e-mail został potwierdzony. Konto jest aktywne — możesz teraz bezpiecznie się zalogować.";
+      "Your email address has been confirmed. Your account is now active — you can sign in securely.";
     window.history.replaceState({}, document.title, window.location.pathname);
   } catch (error) {
     activationResultModal.hidden = false;
@@ -1611,16 +1611,20 @@ document.querySelector("#google-sign-in").addEventListener("click", () => {
 });
 
 function showGoogleAuthResult() {
-  const error = new URLSearchParams(window.location.search).get("google_error");
-  if (!error) return;
+  const params = new URLSearchParams(window.location.search);
+  const error = params.get("google_error");
+  const pending = params.get("google_pending");
+  if (!error && !pending) return;
   authMode = "login";
   authModal.hidden = false;
   updateAuthForm();
-   showAuthMessage(error === "not_configured"
+  showAuthMessage(pending
+    ? "Your Google registration is almost complete. Please check your inbox for the BeamMods activation email and click the confirmation button before signing in."
+    : error === "not_configured"
     ? "Google login is not configured on the server."
     : error === "activation_required"
       ? "Your Google account was found, but it still needs email activation. Check your inbox and click the BeamMods activation link."
-      : "Google login could not be completed. Try again.", "error");
+      : "Google login could not be completed. Try again.", pending ? "success" : "error");
   window.history.replaceState({}, document.title, window.location.pathname);
 }
 

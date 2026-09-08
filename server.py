@@ -517,7 +517,7 @@ class Handler(BaseHTTPRequestHandler):
 <p style="margin:24px 0 0;color:#718393;font-size:12px;">BeamMods · Your garage. Unlimited.</p></div></div></body></html>"""
                     )
             if created_account:
-                return self.redirect_home("google_error=activation_required")
+                return self.redirect_home("google_pending=1")
             return self.redirect_home("", self.start_session(user_id))
         except (urllib.error.URLError, json.JSONDecodeError, ValueError, sqlite3.Error, OSError) as error:
             print(f"Google OAuth failed: {error}")
@@ -648,7 +648,7 @@ class Handler(BaseHTTPRequestHandler):
                                f"We received your BeamMods registration for {data['username'].strip()}.\n\n"
                                "Use the activation email to finish creating your account.")
                 return self.send_json(201, {"username": data["username"], "email": email, "is_owner": owner,
-                                            "message": "Account created. Check your inbox for your BeamMods activation link."})
+                                            "message": "Your account has been created successfully. Please check your inbox for the BeamMods activation email, then click the confirmation button to finish setting up your account."})
             if parsed.path == "/api/auth/forgot-password":
                 data = self.read_json()
                 email = str(data.get("email", "")).strip().lower()
@@ -857,6 +857,42 @@ class Handler(BaseHTTPRequestHandler):
             if not user:
                 return
             if self.path.split("?", 1)[0] == "/api/me":
+                deleted_email = user["email"]
+                deleted_username = user["username"]
+                deleted_at = now()
+                send_email(
+                    deleted_email,
+                    "BeamMods account deleted",
+                    f"Hi {deleted_username},\n\n"
+                    "Your BeamMods account and its associated data have been permanently deleted.\n\n"
+                    f"Completed at: {deleted_at}\n\n"
+                    "If you did not request this change, contact the BeamMods owner immediately.\n\n"
+                    "BeamMods\nYour garage. Unlimited.",
+                    f"""<!doctype html>
+<html lang="en">
+<body style="margin:0;background:#0d1520;color:#e9eef2;font-family:Arial,sans-serif;">
+  <div style="padding:42px 18px;background:#0d1520;">
+    <div style="max-width:540px;margin:0 auto;text-align:center;">
+      <div style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#ff6746;">Beam<span style="color:#f5f7f8;">Mods</span></div>
+      <div style="margin-top:26px;padding:34px 30px;border:1px solid #314256;border-radius:18px;background:#172334;text-align:center;">
+        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aaebe;">Account security</div>
+        <h1 style="margin:14px 0 12px;font-size:28px;color:#f5f7f8;">Account deleted</h1>
+        <p style="margin:0 auto 22px;max-width:410px;color:#b8c6d0;font-size:15px;line-height:1.65;">
+          Hi {escape(deleted_username)}, your BeamMods account and all associated data have been permanently removed.
+        </p>
+        <div style="margin:0 auto;padding:14px;border:1px solid #314256;border-radius:10px;color:#aebdca;background:#101b2a;font-size:12px;">
+          Completed at: {escape(deleted_at)}
+        </div>
+        <p style="margin:24px 0 0;color:#8293a1;font-size:12px;line-height:1.6;">
+          If you did not request this deletion, contact the BeamMods owner immediately.
+        </p>
+      </div>
+      <p style="margin:24px 0 0;color:#718393;font-size:12px;">BeamMods · Your garage. Unlimited.</p>
+    </div>
+  </div>
+</body>
+</html>"""
+                )
                 with db() as connection:
                     mod_ids = [row["id"] if isinstance(row, dict) else row[0]
                                for row in execute(connection, "SELECT id FROM mods WHERE owner_id=?", (user["id"],)).fetchall()]
@@ -900,6 +936,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(204)
             self.send_header("Content-Length", "0")
             self.end_headers()
+        except RuntimeError as error:
+            return self.send_json(503, {"error": f"Account deletion email could not be sent: {error}"})
         except (sqlite3.Error, OSError, ValueError) as error:
             return self.send_json(400, {"error": str(error)})
 
