@@ -139,7 +139,7 @@ def init_db():
               id INTEGER PRIMARY KEY, owner_id INTEGER NOT NULL REFERENCES users(id),
               name TEXT NOT NULL, category TEXT NOT NULL, author TEXT NOT NULL, description TEXT NOT NULL,
               version TEXT NOT NULL, configs INTEGER NOT NULL DEFAULT 0, image_path TEXT,
-              approved INTEGER NOT NULL DEFAULT 0, download_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+              download_url TEXT, approved INTEGER NOT NULL DEFAULT 0, download_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS mod_versions (
               id INTEGER PRIMARY KEY, mod_id INTEGER NOT NULL REFERENCES mods(id) ON DELETE CASCADE,
               version TEXT NOT NULL, zip_path TEXT NOT NULL, original_filename TEXT, sha256 TEXT NOT NULL, created_at TEXT NOT NULL);
@@ -166,7 +166,7 @@ def init_db():
               activation_token TEXT, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS mods (id SERIAL PRIMARY KEY, owner_id INTEGER NOT NULL REFERENCES users(id), name TEXT NOT NULL,
               category TEXT NOT NULL, author TEXT NOT NULL, description TEXT NOT NULL, version TEXT NOT NULL, configs INTEGER NOT NULL DEFAULT 0,
-              image_path TEXT, approved INTEGER NOT NULL DEFAULT 0, download_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+              image_path TEXT, download_url TEXT, approved INTEGER NOT NULL DEFAULT 0, download_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS mod_versions (id SERIAL PRIMARY KEY, mod_id INTEGER NOT NULL REFERENCES mods(id) ON DELETE CASCADE,
               version TEXT NOT NULL, zip_path TEXT NOT NULL, original_filename TEXT, sha256 TEXT NOT NULL, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS comments (id SERIAL PRIMARY KEY, mod_id INTEGER NOT NULL REFERENCES mods(id) ON DELETE CASCADE,
@@ -196,6 +196,9 @@ def init_db():
                 connection.execute("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 0")
             if "activation_token" not in user_columns:
                 connection.execute("ALTER TABLE users ADD COLUMN activation_token TEXT")
+            mod_columns = {row[1] for row in connection.execute("PRAGMA table_info(mods)")}
+            if "download_url" not in mod_columns:
+                connection.execute("ALTER TABLE mods ADD COLUMN download_url TEXT")
         else:
             column = execute(connection, "SELECT 1 FROM information_schema.columns "
                               "WHERE table_name='mod_versions' AND column_name='original_filename'").fetchone()
@@ -205,6 +208,9 @@ def init_db():
                 column = execute(connection, "SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name=?", (name,)).fetchone()
                 if not column:
                     execute(connection, f"ALTER TABLE users ADD COLUMN {name} {definition}")
+            column = execute(connection, "SELECT 1 FROM information_schema.columns WHERE table_name='mods' AND column_name='download_url'").fetchone()
+            if not column:
+                execute(connection, "ALTER TABLE mods ADD COLUMN download_url TEXT")
         if not isinstance(connection, sqlite3.Connection):
             connection.commit()
 
@@ -466,16 +472,31 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("Choose a ZIP file or provide a download link")
                 zip_path, image_path = self.save_upload(upload, preview, None)
                 with db() as connection:
-                    statement = "INSERT INTO mods(owner_id,name,category,author,description,version,configs,image_path,approved,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)"
+                    statement = "INSERT INTO mods(owner_id,name,category,author,description,version,configs,image_path,download_url,approved,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)"
                     if not isinstance(connection, sqlite3.Connection):
                         statement += " RETURNING id"
                     cur = execute(connection, statement,
-                                  (user["id"], *(str(data[k]).strip() for k in required), int(data.get("configs", 0)), image_path, 0, now()))
+                                  (user["id"], *(str(data[k]).strip() for k in required), int(data.get("configs", 0)), image_path,
+                                   str(data.get("downloadUrl", "")).strip() or None, 0, now()))
                     mod_id = inserted_id(connection, cur)
                     if zip_path:
                         execute(connection, "INSERT INTO mod_versions(mod_id,version,zip_path,original_filename,sha256,created_at) VALUES(?,?,?,?,?,?)",
                                 (mod_id, data["version"], zip_path, upload.filename, hashlib.sha256((DATA / zip_path).read_bytes()).hexdigest(), now()))
-                return self.send_json(201, self.mod(mod_id, True))
+                return self.send_json(201, {
+                    "id": mod_id,
+                    "name": str(data["name"]).strip(),
+                    "category": str(data["category"]).strip(),
+                    "author": str(data["author"]).strip(),
+                    "description": str(data["description"]).strip(),
+                    "version": str(data["version"]).strip(),
+                    "configs": int(data.get("configs", 0)),
+                    "download_url": str(data.get("downloadUrl", "")).strip(),
+                    "approved": 0,
+                    "created_at": now(),
+                    "username": user["username"],
+                    "image_path": image_path,
+                    "original_filename": upload.filename if upload else None
+                })
             if len(parts) >= 4 and parts[1] == "mods" and parts[3] == "comments":
                 data = self.read_json()
                 if not data.get("body", "").strip(): raise ValueError("Comment cannot be empty")

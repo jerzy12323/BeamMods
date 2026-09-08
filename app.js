@@ -1314,7 +1314,7 @@ async function finishUpload(data, file, images, source, downloadUrl) {
         updatedAt: remoteMod.created_at,
         image: remoteMod.image_path ? `/uploads/${remoteMod.image_path.split("/").pop()}` : "",
         images: remoteMod.image_path ? [`/uploads/${remoteMod.image_path.split("/").pop()}`] : [],
-        downloadUrl: "",
+        downloadUrl: remoteMod.download_url || "",
         fileId: "",
         fileName: remoteMod.original_filename || ""
       });
