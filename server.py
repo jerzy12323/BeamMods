@@ -7,6 +7,7 @@ the application from starting.
 """
 import io
 import hashlib
+from html import escape
 import json
 import mimetypes
 import os
@@ -114,7 +115,7 @@ def is_owner_user(user):
                           user.get("email", "").lower() == OWNER_EMAIL))
 
 
-def send_email(recipient, subject, body):
+def send_email(recipient, subject, body, html=None):
     host = os.environ.get("SMTP_HOST")
     username = os.environ.get("SMTP_USER")
     password = os.environ.get("SMTP_PASSWORD")
@@ -126,6 +127,8 @@ def send_email(recipient, subject, body):
     message["To"] = recipient
     message["Subject"] = subject
     message.set_content(body)
+    if html:
+        message.add_alternative(html, subtype="html")
     port = int(os.environ.get("SMTP_PORT", "587"))
     with smtplib.SMTP(host, port, timeout=20) as smtp:
         smtp.starttls()
@@ -579,12 +582,35 @@ class Handler(BaseHTTPRequestHandler):
                     cursor = execute(connection, statement,
                                      (data["username"].strip(), email, password_hash(data["password"]), int(owner), 0, activation_token, now()))
                     uid = inserted_id(connection, cursor)
+                    activation_url = f"{PUBLIC_URL}/?activation={quote(activation_token)}"
+                    username_display = data["username"].strip()
+                    username_html = escape(username_display)
                     send_email(email, "Welcome to BeamMods — activate your account",
-                               f"Welcome to BeamMods, {data['username'].strip()}!\n\n"
-                               "Your account is almost ready. Click the link below to confirm your email and enter the BeamMods community:\n\n"
-                               f"{PUBLIC_URL}/?activation={quote(activation_token)}\n\n"
+                               f"Welcome to BeamMods, {username_display}!\n\n"
+                               "Your account is almost ready. Confirm your email here:\n\n"
+                               f"{activation_url}\n\n"
                                "This activation link can be used once. If you did not create this account, you can safely ignore this message.\n\n"
-                               "BeamMods\nYour garage. Unlimited.")
+                               "BeamMods\nYour garage. Unlimited.",
+                               f"""<!doctype html>
+<html lang="en">
+<body style="margin:0;background:#0d1520;color:#e9eef2;font-family:Arial,sans-serif;">
+  <div style="padding:42px 18px;background:#0d1520;">
+    <div style="max-width:540px;margin:0 auto;text-align:center;">
+      <div style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#ff6746;">Beam<span style="color:#f5f7f8;">Mods</span></div>
+      <div style="margin-top:26px;padding:34px 30px;border:1px solid #314256;border-radius:18px;background:#172334;text-align:center;">
+        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aaebe;">Welcome to the garage</div>
+        <h1 style="margin:14px 0 12px;font-size:28px;color:#f5f7f8;">Confirm your account</h1>
+        <p style="margin:0 auto 26px;max-width:410px;color:#b8c6d0;font-size:15px;line-height:1.65;">
+          Hi {username_html}, your BeamMods account is almost ready. Confirm your email to start publishing and discovering mods.
+        </p>
+        <a href="{activation_url}" style="display:inline-block;padding:14px 24px;border-radius:9px;background:#ff6746;color:#101923;text-decoration:none;font-weight:800;font-size:14px;">Confirm email address&nbsp; ↗</a>
+        <p style="margin:25px 0 0;color:#8293a1;font-size:12px;line-height:1.6;">This link can be used once. If you did not create this account, you can ignore this email.</p>
+      </div>
+      <p style="margin:24px 0 0;color:#718393;font-size:12px;">BeamMods · Your garage. Unlimited.</p>
+    </div>
+  </div>
+</body>
+</html>""")
                     send_email(email, "BeamMods registration received",
                                f"We received your BeamMods registration for {data['username'].strip()}.\n\n"
                                "Use the activation email to finish creating your account.")
@@ -604,13 +630,36 @@ class Handler(BaseHTTPRequestHandler):
                     execute(connection, "UPDATE users SET reset_token=?, reset_expires_at=? WHERE lower(email)=lower(?)",
                             (token, expires, email))
                     username = user["username"] if isinstance(user, dict) else user[1]
+                reset_url = f"{PUBLIC_URL}/?reset={quote(token)}"
+                username_html = escape(username)
                 send_email(email, "Reset your BeamMods password",
                            f"Hi {username},\n\n"
                            "We received a request to reset your BeamMods password.\n\n"
                            "Use this secure link within the next hour:\n\n"
-                           f"{PUBLIC_URL}/?reset={quote(token)}\n\n"
+                           f"{reset_url}\n\n"
                            "If you did not request this, you can ignore this email. Your current password will remain unchanged.\n\n"
-                           "BeamMods\nYour garage. Unlimited.")
+                           "BeamMods\nYour garage. Unlimited.",
+                           f"""<!doctype html>
+<html lang="en">
+<body style="margin:0;background:#0d1520;color:#e9eef2;font-family:Arial,sans-serif;">
+  <div style="padding:42px 18px;background:#0d1520;">
+    <div style="max-width:540px;margin:0 auto;text-align:center;">
+      <div style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#ff6746;">Beam<span style="color:#f5f7f8;">Mods</span></div>
+      <div style="margin-top:26px;padding:34px 30px;border:1px solid #314256;border-radius:18px;background:#172334;text-align:center;">
+        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aaebe;">Account recovery</div>
+        <h1 style="margin:14px 0 12px;font-size:28px;color:#f5f7f8;">Reset your password</h1>
+        <p style="margin:0 auto 26px;max-width:410px;color:#b8c6d0;font-size:15px;line-height:1.65;">
+          Hi {username_html}, we received a request to create a new password for your BeamMods account.
+        </p>
+        <a href="{reset_url}" style="display:inline-block;padding:14px 24px;border-radius:9px;background:#ff6746;color:#101923;text-decoration:none;font-weight:800;font-size:14px;">Reset password&nbsp; ↗</a>
+        <p style="margin:25px 0 0;color:#8293a1;font-size:12px;line-height:1.6;">This secure link expires in one hour and can only be used once.</p>
+      </div>
+      <p style="margin:24px 0 0;color:#718393;font-size:12px;">If you did not request this, your current password remains unchanged.</p>
+      <p style="margin:8px 0 0;color:#718393;font-size:12px;">BeamMods · Your garage. Unlimited.</p>
+    </div>
+  </div>
+</body>
+</html>""")
                 return self.send_json(200, {"message": "A password reset link has been sent to your email."})
             if parsed.path == "/api/auth/reset-password":
                 data = self.read_json()
