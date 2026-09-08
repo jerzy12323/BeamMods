@@ -1610,9 +1610,11 @@ function showGoogleAuthResult() {
   authMode = "login";
   authModal.hidden = false;
   updateAuthForm();
-  showAuthMessage(error === "not_configured"
+   showAuthMessage(error === "not_configured"
     ? "Google login is not configured on the server."
-    : "Google login could not be completed. Try again.", "error");
+    : error === "activation_required"
+      ? "Your Google account was found, but it still needs email activation. Check your inbox and click the BeamMods activation link."
+      : "Google login could not be completed. Try again.", "error");
   window.history.replaceState({}, document.title, window.location.pathname);
 }
 

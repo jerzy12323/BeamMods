@@ -486,14 +486,34 @@ class Handler(BaseHTTPRequestHandler):
                 user = execute(connection, "SELECT * FROM users WHERE lower(email)=lower(?)", (email,)).fetchone()
                 if user:
                     user_id = user["id"] if isinstance(user, dict) else user[0]
+                    if not user["is_active"]:
+                        return self.redirect_home("google_error=activation_required")
                 else:
                     password = secrets.token_urlsafe(32)
                     owner = username.lower() == OWNER_USERNAME or email == OWNER_EMAIL
+                    activation_token = secrets.token_urlsafe(32)
                     statement = "INSERT INTO users(username,email,password_hash,is_owner,is_active,activation_token,created_at) VALUES(?,?,?,?,?,?,?)"
                     if not isinstance(connection, sqlite3.Connection):
                         statement += " RETURNING id"
-                    cursor = execute(connection, statement, (username, email, password_hash(password), int(owner), 1, None, now()))
+                    cursor = execute(connection, statement, (username, email, password_hash(password), int(owner), 0, activation_token, now()))
                     user_id = inserted_id(connection, cursor)
+                    activation_url = f"{PUBLIC_URL}/?activation={quote(activation_token)}"
+                    send_email(
+                        email,
+                        "Welcome to BeamMods — activate your Google account",
+                        f"Welcome to BeamMods, {username}!\n\nConfirm your email to finish signing in:\n\n{activation_url}\n\n"
+                        "This link can be used once. If you did not create this account, you can ignore this email.\n\nBeamMods",
+                        f"""<!doctype html><html lang="en"><body style="margin:0;background:#0d1520;color:#e9eef2;font-family:Arial,sans-serif;">
+<div style="padding:42px 18px;background:#0d1520;"><div style="max-width:540px;margin:0 auto;text-align:center;">
+<div style="font-size:28px;font-weight:800;color:#ff6746;">Beam<span style="color:#f5f7f8;">Mods</span></div>
+<div style="margin-top:26px;padding:34px 30px;border:1px solid #314256;border-radius:18px;background:#172334;">
+<div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aaebe;">Google account setup</div>
+<h1 style="margin:14px 0 12px;color:#f5f7f8;">Confirm your email</h1>
+<p style="color:#b8c6d0;font-size:15px;line-height:1.65;">Your Google account is almost ready. Confirm your email before you enter the BeamMods garage.</p>
+<a href="{activation_url}" style="display:inline-block;padding:14px 24px;border-radius:9px;background:#ff6746;color:#101923;text-decoration:none;font-weight:800;">Activate account&nbsp; ↗</a>
+<p style="margin:25px 0 0;color:#8293a1;font-size:12px;">This link can be used once.</p></div>
+<p style="margin:24px 0 0;color:#718393;font-size:12px;">BeamMods · Your garage. Unlimited.</p></div></div></body></html>"""
+                    )
             return self.redirect_home("", self.start_session(user_id))
         except (urllib.error.URLError, json.JSONDecodeError, ValueError, sqlite3.Error, OSError) as error:
             print(f"Google OAuth failed: {error}")
@@ -694,7 +714,9 @@ class Handler(BaseHTTPRequestHandler):
                 with db() as connection:
                     user = execute(connection, "SELECT * FROM users WHERE lower(email)=lower(?) OR lower(username)=lower(?)",
                                    (data.get("identifier", data.get("email", "")), data.get("identifier", data.get("email", "")))).fetchone()
-                if not user or not verify_password(data["password"], user["password_hash"]):
+                if not user:
+                    return self.send_json(404, {"error": "No BeamMods account was found with that email or username. Create an account first."})
+                if not verify_password(data["password"], user["password_hash"]):
                     return self.send_json(401, {"error": "Invalid email or password"})
                 if not user["is_active"]:
                     return self.send_json(403, {"error": "Activate your account using the link sent to your email first."})
