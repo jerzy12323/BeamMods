@@ -335,6 +335,16 @@ class Handler(BaseHTTPRequestHandler):
             except RuntimeError:
                 pass
             return self.send_json(200, {"ok": True, "message": "Your account is active. You can now sign in."})
+        if parsed.path == "/api/mods/pending":
+            user = self.require_user()
+            if not is_owner_user(user):
+                return self.send_json(403, {"error": "Owner access required"})
+            with db() as connection:
+                result = rows(execute(connection, "SELECT m.*, "
+                    "(SELECT original_filename FROM mod_versions WHERE mod_id=m.id ORDER BY id DESC LIMIT 1) AS original_filename, "
+                    "u.username FROM mods m JOIN users u ON u.id=m.owner_id WHERE m.approved=0 "
+                    "ORDER BY m.created_at ASC"))
+            return self.send_json(200, result)
         if parsed.path == "/api/mods":
             with db() as connection:
                 result = rows(execute(connection, "SELECT m.*, (SELECT original_filename FROM mod_versions WHERE mod_id=m.id ORDER BY id DESC LIMIT 1) AS original_filename, u.username, COALESCE(AVG(r.rating),0) AS rating, "

@@ -197,6 +197,43 @@ function renderPendingMods() {
     : "<p class='form-note'>No mods are waiting for approval.</p>";
 }
 
+async function syncPendingMods() {
+  if (!remoteMode || !isOwnerAccount()) return;
+  const pending = await apiRequest("/api/mods/pending");
+  if (!Array.isArray(pending)) throw new Error("Pending mods response was not a list.");
+  const localById = new Set(mods.map((mod) => String(mod.id || "")));
+  const imported = pending
+    .filter((mod) => !localById.has(String(mod.id)))
+    .map((mod) => ({
+      id: mod.id,
+      name: mod.name,
+      category: mod.category,
+      author: mod.author,
+      description: mod.description,
+      version: mod.version,
+      gameVersion: "0.39",
+      configs: mod.configs,
+      size: "Community upload",
+      rating: "",
+      downloads: 0,
+      age: 0,
+      cover: "cover-drift",
+      icon: "NEW",
+      approved: false,
+      owner: mod.username || mod.author,
+      publishedAt: mod.created_at,
+      updatedAt: mod.created_at,
+      image: mod.image_path ? `/uploads/${mod.image_path.split("/").pop()}` : "",
+      images: mod.image_path ? [`/uploads/${mod.image_path.split("/").pop()}`] : [],
+      downloadUrl: mod.download_url || "",
+      fileId: "",
+      fileName: mod.original_filename || ""
+    }));
+  if (!imported.length) return;
+  mods = [...imported, ...mods];
+  renderPendingMods();
+}
+
 async function renderOwnerReports() {
   const target = document.querySelector("#owner-reports");
   if (!target) return;
@@ -306,6 +343,9 @@ function showOwnerPage() {
   document.querySelectorAll(".dashboard-action").forEach((button) => button.classList.remove("active"));
   document.querySelector("#owner-panel-link").classList.add("active");
   renderPendingMods();
+  syncPendingMods().catch((error) => {
+    document.querySelector("#pending-mods").innerHTML = `<p class="form-note form-error">${escapeHtml(error.message)}</p>`;
+  });
   renderOwnerReports();
 }
 
