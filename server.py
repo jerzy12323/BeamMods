@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parent
 DATA = Path(os.environ.get("DATA_DIR", str(ROOT / "data")))
 UPLOADS = DATA / "uploads"
 DB_PATH = DATA / "beammods.sqlite3"
-MAX_UPLOAD = 2 * 1024 * 1024 * 1024
+MAX_UPLOAD = 95 * 1024 * 1024
 SESSIONS = {}
 PG = None
 

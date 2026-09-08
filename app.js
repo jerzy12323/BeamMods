@@ -1,5 +1,6 @@
 const defaultMods = [];
 const remoteMode = /^https?:$/i.test(window.location.protocol);
+const remoteUploadLimit = 95 * 1024 * 1024;
 async function apiRequest(path, options = {}) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), options.timeoutMs || 120000);
@@ -1233,6 +1234,10 @@ form.addEventListener("submit", async (event) => {
     showUploadMessage("Security check failed: choose a ZIP file smaller than 2 GB.", "error");
     return;
   }
+  if (remoteMode && source === "file" && file.size > remoteUploadLimit) {
+    showUploadMessage("This ZIP is too large for the online server. Render accepts uploads up to 95 MB. Please use a smaller ZIP or an external download link.", "error");
+    return;
+  }
   if (images.some((image) => image.size > 8 * 1024 * 1024)) {
     showUploadMessage("Each preview image must be smaller than 8 MB.", "error");
     return;
@@ -1287,7 +1292,7 @@ async function finishUpload(data, file, images, source, downloadUrl) {
       if (validImages[0]) {
         upload.append("preview", validImages[0], validImages[0].name);
       }
-      const remoteMod = await apiRequest("/api/mods", { method: "POST", body: upload });
+      const remoteMod = await apiRequest("/api/mods", { method: "POST", body: upload, timeoutMs: 180000 });
       mods.unshift({
         id: remoteMod.id,
         name: remoteMod.name,
