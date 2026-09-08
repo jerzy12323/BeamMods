@@ -127,7 +127,9 @@ h1 em, h2 em { color: var(--orange); font-style: normal; }
 .owner-view-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; }
 .owner-view-heading h2 { margin: 0; font-size: clamp(42px, 5vw, 70px); }
 .owner-view-heading em { color: var(--orange); font-style: normal; }
-.owner-lock { border: 1px solid rgba(255,103,70,.45); padding: 8px 10px; color: var(--orange); font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: .1em; }
+.owner-lock { display: inline-flex; align-items: center; gap: 8px; align-self: center; border: 1px solid rgba(255,103,70,.38); border-radius: 999px; padding: 9px 13px 9px 10px; color: #ffd2c5; background: rgba(255,103,70,.09); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 8px 22px rgba(0,0,0,.16); font-family: "DM Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: .12em; line-height: 1; }
+.owner-lock::before { display: inline-grid; width: 18px; height: 18px; place-items: center; border: 1px solid rgba(255,179,93,.5); border-radius: 50%; color: #ffb35d; background: rgba(255,179,93,.12); content: "✓"; font-family: "Space Grotesk", sans-serif; font-size: 11px; font-weight: 700; }
+.owner-lock:hover { border-color: rgba(255,179,93,.7); background: rgba(255,103,70,.15); }
 .owner-view .owner-intro { margin: 18px 0 36px; }
 .approve-mod { width: auto; padding: 10px 14px; }
 .approval-card { display: flex; align-items: center; gap: 20px; border: 1px solid rgba(168,185,198,.18); border-radius: 14px; margin-bottom: 16px; padding: 22px; background: #162337; animation: cardIn .45s ease both; }
@@ -718,6 +720,10 @@ body { background: radial-gradient(circle at 80% -10%, rgba(54, 81, 112, .22), t
   .gallery-arrow { width: 36px; height: 36px; font-size: 26px; }
   .gallery-prev { left: 12px; }
   .gallery-next { right: 12px; }
+}
+@media (max-width: 620px) {
+  .owner-view-heading { align-items: flex-start; flex-direction: column; }
+  .owner-lock { align-self: flex-start; }
 }
 .details-rating .eyebrow { margin: 0 0 7px; color: var(--orange); font-size: 9px; }
 .details-rating h3 { margin: 0 0 5px; color: #f1f5f6; font-size: 18px; }

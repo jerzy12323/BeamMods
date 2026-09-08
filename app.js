@@ -21,7 +21,9 @@ async function apiRequest(path, options = {}) {
     ? await response.json()
     : await response.text();
   if (!response.ok) {
-    const message = typeof payload === "string" ? payload.slice(0, 240) : payload?.error;
+    const message = typeof payload === "string"
+      ? (payload.includes("<html") || payload.includes("<!DOCTYPE") ? "The server could not process the approval. Please try again." : payload.slice(0, 240))
+      : payload?.error;
     throw new Error(message || `Request failed (${response.status}).`);
   }
   return payload;

@@ -191,6 +191,9 @@ def init_db():
             columns = {row[1] for row in connection.execute("PRAGMA table_info(mod_versions)")}
             if "original_filename" not in columns:
                 connection.execute("ALTER TABLE mod_versions ADD COLUMN original_filename TEXT")
+            mod_columns = {row[1] for row in connection.execute("PRAGMA table_info(mods)")}
+            if "download_url" not in mod_columns:
+                connection.execute("ALTER TABLE mods ADD COLUMN download_url TEXT")
             user_columns = {row[1] for row in connection.execute("PRAGMA table_info(users)")}
             if "is_active" not in user_columns:
                 connection.execute("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 0")
@@ -204,6 +207,10 @@ def init_db():
                               "WHERE table_name='mod_versions' AND column_name='original_filename'").fetchone()
             if not column:
                 execute(connection, "ALTER TABLE mod_versions ADD COLUMN original_filename TEXT")
+            column = execute(connection, "SELECT 1 FROM information_schema.columns "
+                              "WHERE table_name='mods' AND column_name='download_url'").fetchone()
+            if not column:
+                execute(connection, "ALTER TABLE mods ADD COLUMN download_url TEXT")
             for name, definition in (("is_active", "INTEGER NOT NULL DEFAULT 0"), ("activation_token", "TEXT")):
                 column = execute(connection, "SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name=?", (name,)).fetchone()
                 if not column:
@@ -523,31 +530,50 @@ class Handler(BaseHTTPRequestHandler):
         self.do_PUT()
 
     def do_PUT(self):
-        parts = self.path.strip("/").split("/")
-        user = self.require_user()
-        if not user or len(parts) != 3 or parts[:2] != ["api", "mods"]: return
-        data = self.read_json()
-        with db() as c:
-            owner = execute(c, "SELECT owner_id FROM mods WHERE id=?", (parts[2],)).fetchone()
-            if not owner: return self.send_json(404, {"error": "Mod not found"})
-            owner_id = owner["owner_id"] if isinstance(owner, dict) else owner[0]
-            if owner_id != user["id"] and not user["is_owner"]: return self.send_json(404, {"error": "Mod not found"})
-            allowed = ("name", "category", "author", "description", "version", "configs", "approved")
-            values = [(k, data[k]) for k in allowed if k in data]
-            if values: execute(c, "UPDATE mods SET "+",".join(k+"=?" for k, _ in values)+" WHERE id=?", [v for _, v in values]+[parts[2]])
-        return self.send_json(200, self.mod(parts[2], True))
+        try:
+            parts = self.path.strip("/").split("/")
+            user = self.require_user()
+            if not user or len(parts) != 3 or parts[:2] != ["api", "mods"]:
+                return
+            data = self.read_json()
+            with db() as c:
+                owner = execute(c, "SELECT owner_id FROM mods WHERE id=?", (parts[2],)).fetchone()
+                if not owner:
+                    return self.send_json(404, {"error": "Mod not found"})
+                owner_id = owner["owner_id"] if isinstance(owner, dict) else owner[0]
+                if owner_id != user["id"] and not user["is_owner"]:
+                    return self.send_json(403, {"error": "Owner access required"})
+                allowed = ("name", "category", "author", "description", "version", "configs", "approved")
+                values = [(k, data[k]) for k in allowed if k in data]
+                if values:
+                    execute(c, "UPDATE mods SET "+",".join(k+"=?" for k, _ in values)+" WHERE id=?",
+                            [v for _, v in values]+[parts[2]])
+            updated = self.mod(parts[2], True)
+            if not updated:
+                return self.send_json(404, {"error": "Mod not found"})
+            return self.send_json(200, updated)
+        except (KeyError, ValueError, sqlite3.Error, OSError) as error:
+            return self.send_json(400, {"error": str(error)})
 
     def do_DELETE(self):
-        parts = self.path.strip("/").split("/")
-        user = self.require_user()
-        if not user or len(parts) != 3 or parts[:2] != ["api", "mods"]: return
-        with db() as c:
-            owner = execute(c, "SELECT owner_id FROM mods WHERE id=?", (parts[2],)).fetchone()
-            if not owner: return self.send_json(404, {"error": "Mod not found"})
-            owner_id = owner["owner_id"] if isinstance(owner, dict) else owner[0]
-            if owner_id != user["id"] and not user["is_owner"]: return self.send_json(404, {"error": "Mod not found"})
-            execute(c, "DELETE FROM mods WHERE id=?", (parts[2],))
-        return self.send_json(204, {})
+        try:
+            parts = self.path.strip("/").split("/")
+            user = self.require_user()
+            if not user or len(parts) != 3 or parts[:2] != ["api", "mods"]:
+                return
+            with db() as c:
+                owner = execute(c, "SELECT owner_id FROM mods WHERE id=?", (parts[2],)).fetchone()
+                if not owner:
+                    return self.send_json(404, {"error": "Mod not found"})
+                owner_id = owner["owner_id"] if isinstance(owner, dict) else owner[0]
+                if owner_id != user["id"] and not user["is_owner"]:
+                    return self.send_json(403, {"error": "Owner access required"})
+                execute(c, "DELETE FROM mods WHERE id=?", (parts[2],))
+            self.send_response(204)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+        except (sqlite3.Error, OSError, ValueError) as error:
+            return self.send_json(400, {"error": str(error)})
 
     def download(self, mod_id):
         with db() as c:
