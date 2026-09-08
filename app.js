@@ -1452,15 +1452,21 @@ document.querySelector(".brand").addEventListener("click", (event) => {
 });
 document.querySelector("#delete-account").addEventListener("click", () => {
   askConfirmation("Delete your account?", "This permanently removes your account and every mod you published. This cannot be undone.", () => {
-    const users = getUsers().filter((user) => user.username !== currentUser.username);
-    localStorage.setItem("beammods-users", JSON.stringify(users));
-    mods = mods.filter((mod) => mod.owner !== currentUser.username);
-    localStorage.setItem("beammods-mods", JSON.stringify(mods.filter((mod) => !defaultMods.includes(mod))));
-    currentUser = null;
-    localStorage.removeItem("beammods-current-user");
-    showLibrary();
-    updateAccountButton();
-    renderMods();
+    const deleteAccount = async () => {
+      if (remoteMode) await apiRequest("/api/me", { method: "DELETE" });
+      const users = getUsers().filter((user) => user.username !== currentUser.username);
+      localStorage.setItem("beammods-users", JSON.stringify(users));
+      mods = mods.filter((mod) => mod.owner !== currentUser.username);
+      localStorage.setItem("beammods-mods", JSON.stringify(mods.filter((mod) => !defaultMods.includes(mod))));
+      currentUser = null;
+      localStorage.removeItem("beammods-current-user");
+      showLibrary();
+      updateAccountButton();
+      renderMods();
+    };
+    deleteAccount().catch((error) => {
+      showActionNotice("Account deletion failed", error.message);
+    });
   });
 });
 document.querySelector("#profile-mods").addEventListener("click", (event) => {

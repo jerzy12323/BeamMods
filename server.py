@@ -852,6 +852,22 @@ class Handler(BaseHTTPRequestHandler):
             user = self.require_user()
             if not user:
                 return
+            if self.path.split("?", 1)[0] == "/api/me":
+                with db() as connection:
+                    mod_ids = [row["id"] if isinstance(row, dict) else row[0]
+                               for row in execute(connection, "SELECT id FROM mods WHERE owner_id=?", (user["id"],)).fetchall()]
+                    for mod_id in mod_ids:
+                        execute(connection, "DELETE FROM bug_reports WHERE mod_id=?", (mod_id,))
+                        execute(connection, "DELETE FROM comments WHERE mod_id=?", (mod_id,))
+                        execute(connection, "DELETE FROM ratings WHERE mod_id=?", (mod_id,))
+                        execute(connection, "DELETE FROM favorites WHERE mod_id=?", (mod_id,))
+                        execute(connection, "DELETE FROM mod_downloads WHERE mod_id=?", (mod_id,))
+                        execute(connection, "DELETE FROM mod_versions WHERE mod_id=?", (mod_id,))
+                    execute(connection, "DELETE FROM mods WHERE owner_id=?", (user["id"],))
+                    execute(connection, "DELETE FROM bug_reports WHERE user_id=?", (user["id"],))
+                    execute(connection, "DELETE FROM sessions WHERE user_id=?", (user["id"],))
+                    execute(connection, "DELETE FROM users WHERE id=?", (user["id"],))
+                return self.clear_session()
             if len(parts) == 3 and parts[:2] == ["api", "reports"]:
                 if not is_owner_user(user):
                     return self.send_json(403, {"error": "Owner access required"})
