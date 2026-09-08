@@ -271,6 +271,9 @@ h2 { font-size: clamp(43px, 5.2vw, 70px); }
 .auth-tabs { display: flex; gap: 22px; margin: -6px 0 24px; border-bottom: 1px solid rgba(168,185,198,.18); }
 .auth-tab { border: 0; border-bottom: 2px solid transparent; padding: 0 0 10px; color: #91a0ab; background: transparent; cursor: pointer; font-size: 12px; }
 .auth-tab.active { border-color: var(--orange); color: #e5eaed; }
+.forgot-password-link { display: block; margin: 18px auto 0; border: 0; padding: 0; color: #ff9c7f; background: transparent; cursor: pointer; font-family: "DM Mono", monospace; font-size: 11px; }
+.forgot-password-link:hover { color: #fff; text-decoration: underline; }
+.password-reset-modal { width: min(100%, 560px) !important; }
 .profile-summary { display: flex; align-items: center; justify-content: space-between; margin: 18px 0 35px; padding: 14px; background: #172130; color: #aebbc3; font-family: "DM Mono", monospace; font-size: 10px; }
 .profile-summary button { border: 0; color: var(--orange); background: transparent; cursor: pointer; font-size: 10px; }
 .profile-modal h3 { margin: 0 0 14px; font-size: 13px; }
@@ -734,6 +737,14 @@ body { background: radial-gradient(circle at 80% -10%, rgba(54, 81, 112, .22), t
 .rating-stars button { border: 0; padding: 3px; color: #536477; background: transparent; cursor: pointer; font-size: 25px; transition: color .2s ease, transform .2s ease; }
 .rating-stars button:hover, .rating-stars button.selected { color: #ffb35d; transform: translateY(-2px); }
 .dashboard-sidebar #dashboard-email { font-size: 14px; }
+.profile-name-form { display: grid; gap: 7px; margin: 18px 0 20px; }
+.profile-name-form label { color: #9fb0bd; font-family: "DM Mono", monospace; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.profile-name-form > div { display: flex; gap: 7px; }
+.profile-name-form input { min-width: 0; width: 100%; border: 1px solid rgba(164,188,212,.24); border-radius: 7px; padding: 9px 10px; color: #eaf1f3; background: #101d2e; outline: 0; font-size: 12px; }
+.profile-name-form input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(255,103,70,.12); }
+.profile-name-form button { border: 1px solid rgba(255,103,70,.42); border-radius: 7px; padding: 0 11px; color: #fff3ed; background: rgba(255,103,70,.16); cursor: pointer; font-size: 11px; font-weight: 700; }
+.profile-name-form button:hover { background: var(--orange); color: var(--ink); }
+.profile-name-form .form-note { min-height: 15px; margin: 0; font-family: "Space Grotesk", sans-serif; font-size: 11px; }
 .dashboard-sidebar .danger-action { font-size: 13px; }
 .dashboard-sidebar .form-note,
 .dashboard-content .form-note { font-size: 13px; }

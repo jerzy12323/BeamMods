@@ -85,6 +85,7 @@ function showStandalonePage(page) {
   saveView(page === bugPage ? "bug-page" : page === dmcaPage ? "dmca-page" : "how-page");
   standaloneReturn = dashboardPage.hidden ? "library" : "dashboard";
   authModal.hidden = true;
+  passwordResetModal.hidden = true;
   document.body.classList.remove("dashboard-mode");
   librarySections.forEach((section) => { section.hidden = true; });
   dashboardPage.hidden = true;
@@ -121,6 +122,10 @@ const ownerUsernames = [localStorage.getItem("beammods-owner-username"), "jerzy"
 const ownerEmails = ["beammodshub@gmail.com"];
 const authModal = document.querySelector("#auth-modal");
 const authForm = document.querySelector("#auth-form");
+const passwordResetModal = document.querySelector("#password-reset-modal");
+const forgotPasswordForm = document.querySelector("#forgot-password-form");
+const resetPasswordForm = document.querySelector("#reset-password-form");
+let passwordResetToken = "";
 const dashboardPage = document.querySelector("#dashboard-page");
 const librarySections = document.querySelectorAll("main > section:not(#dashboard-page):not(#bug-page):not(#dmca-page):not(#how-page)");
 
@@ -165,7 +170,7 @@ function updateDashboardAvatar() {
   avatar.textContent = currentUser.avatar ? "" : currentUser.username.slice(0, 1).toUpperCase();
 }
 
-function showDashboard() {
+function showDashboard(sync = true) {
   if (!currentUser) return;
   saveView("dashboard-published");
   document.body.classList.add("dashboard-mode");
@@ -178,6 +183,7 @@ function showDashboard() {
   showPublishedView();
   document.querySelector("#dashboard-name").textContent = `@${currentUser.username}`;
   document.querySelector("#dashboard-email").textContent = currentUser.email || "Google account";
+  document.querySelector("#profile-username").value = currentUser.username;
   updateDashboardAvatar();
   document.querySelector("#dashboard-date").textContent = new Date(currentUser.createdAt || Date.now()).toLocaleDateString();
   const ownMods = mods.filter((mod) => mod.owner === currentUser.username);
@@ -188,7 +194,97 @@ function showDashboard() {
   const isOwner = isOwnerAccount();
   document.querySelector("#owner-panel-link").hidden = !isOwner;
   if (isOwner) renderPendingMods();
+  if (remoteMode && sync) syncUserMods().catch((error) => {
+    document.querySelector("#profile-mods").innerHTML = `<p class="form-note form-error">${escapeHtml(error.message)}</p>`;
+  });
 }
+
+function mapRemoteMod(mod) {
+  return {
+    id: mod.id,
+    name: mod.name,
+    category: mod.category,
+    author: mod.author,
+    description: mod.description,
+    version: mod.version,
+    gameVersion: "0.39",
+    configs: mod.configs,
+    size: "Community upload",
+    rating: mod.rating || "",
+    downloads: mod.download_count || 0,
+    age: 0,
+    cover: "cover-drift",
+    icon: "NEW",
+    approved: Boolean(mod.approved),
+    owner: mod.username || mod.author,
+    publishedAt: mod.created_at,
+    updatedAt: mod.created_at,
+    image: mod.image_path ? `/uploads/${mod.image_path.split("/").pop()}` : "",
+    images: mod.image_path ? [`/uploads/${mod.image_path.split("/").pop()}`] : [],
+    downloadUrl: mod.download_url || "",
+    fileId: "",
+    fileName: mod.original_filename || ""
+  };
+}
+
+async function syncUserMods() {
+  if (!remoteMode || !currentUser) return;
+  const remoteMods = await apiRequest("/api/mods/mine");
+  if (!Array.isArray(remoteMods)) throw new Error("Your mods response was not a list.");
+  const remoteById = new Map(remoteMods.map((mod) => [String(mod.id), mod]));
+  const localById = new Map(mods.filter((mod) => mod.id).map((mod) => [String(mod.id), mod]));
+  remoteMods.forEach((remoteMod) => {
+    const localMod = localById.get(String(remoteMod.id));
+    if (localMod) Object.assign(localMod, mapRemoteMod(remoteMod));
+    else mods.unshift(mapRemoteMod(remoteMod));
+  });
+  mods = mods.filter((mod) => !mod.id || remoteById.has(String(mod.id)) || mod.owner !== currentUser.username);
+  renderMods();
+  showDashboard(false);
+}
+
+document.querySelector("#profile-name-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const input = document.querySelector("#profile-username");
+  const message = document.querySelector("#profile-name-message");
+  const username = input.value.trim();
+  message.textContent = "";
+  if (!/^[A-Za-z0-9_-]{3,24}$/.test(username)) {
+    message.textContent = "Use 3-24 letters, numbers, _ or -.";
+    return;
+  }
+  try {
+    if (remoteMode) {
+      const result = await apiRequest("/api/me", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username })
+      });
+      currentUser.username = result.username;
+    } else {
+      const users = getUsers();
+      const duplicate = users.some((user) => user.username.toLowerCase() === username.toLowerCase()
+        && user.email?.toLowerCase() !== currentUser.email?.toLowerCase());
+      if (duplicate) throw new Error("That username is already taken.");
+      const oldUsername = currentUser.username;
+      users.forEach((user) => {
+        if (user.username === oldUsername) user.username = username;
+      });
+      localStorage.setItem("beammods-users", JSON.stringify(users));
+      mods.forEach((mod) => {
+        if (mod.owner === oldUsername) mod.owner = username;
+      });
+      localStorage.setItem("beammods-mods", JSON.stringify(mods.filter((mod) => !defaultMods.includes(mod))));
+      currentUser.username = username;
+    }
+    localStorage.setItem("beammods-current-user", JSON.stringify(currentUser));
+    updateAccountButton();
+    showDashboard();
+    message.textContent = "Username updated.";
+  } catch (error) {
+    message.textContent = error.message;
+  }
+});
 
 function renderPendingMods() {
   const pending = mods.filter((mod) => mod.approved === false && !mod.isTest);
@@ -989,6 +1085,7 @@ document.addEventListener("keydown", (event) => {
     securityModal.hidden = true;
     uploadConfirmation.hidden = true;
     authModal.hidden = true;
+    passwordResetModal.hidden = true;
     confirmModal.hidden = true;
     bugModal.hidden = true;
     dmcaModal.hidden = true;
@@ -1035,6 +1132,17 @@ function updateAuthForm() {
     : "Demo accounts are stored locally in this browser.";
 }
 
+function openPasswordReset(token = "") {
+  passwordResetToken = token;
+  passwordResetModal.hidden = false;
+  forgotPasswordForm.hidden = Boolean(token);
+  resetPasswordForm.hidden = !token;
+  document.querySelector("#forgot-password-message").textContent = "";
+  document.querySelector("#reset-password-message").textContent = "";
+  if (token) document.querySelector("#reset-password-form input[name=password]").focus();
+  else document.querySelector("#forgot-password-form input[name=email]").focus();
+}
+
 document.querySelectorAll("[data-auth-tab]").forEach((tab) => {
   tab.addEventListener("click", () => {
     authMode = tab.dataset.authTab;
@@ -1042,6 +1150,81 @@ document.querySelectorAll("[data-auth-tab]").forEach((tab) => {
     document.querySelectorAll(".auth-tab").forEach((item) => item.classList.toggle("active", item === tab));
     updateAuthForm();
   });
+});
+
+document.querySelector("#forgot-password-link").addEventListener("click", () => {
+    authModal.hidden = true;
+    openPasswordReset();
+  });
+  document.querySelector("#password-reset-close").addEventListener("click", () => {
+    passwordResetModal.hidden = true;
+  });
+  forgotPasswordForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const message = document.querySelector("#forgot-password-message");
+    const email = new FormData(forgotPasswordForm).get("email").trim();
+    message.textContent = "";
+    try {
+      if (remoteMode) {
+        const result = await apiRequest("/api/auth/forgot-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email })
+        });
+        message.textContent = result.message;
+        message.className = "auth-message success";
+      } else {
+        const user = getUsers().find((item) => String(item.email).toLowerCase() === email.toLowerCase());
+        if (!user) throw new Error("No BeamMods account was found with that email.");
+        message.textContent = "This demo account can be changed locally. Enter a new password below.";
+        message.className = "auth-message success";
+        openPasswordReset(`local:${email}`);
+      }
+    } catch (error) {
+      message.textContent = error.message;
+      message.className = "auth-message error";
+    }
+});
+resetPasswordForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = new FormData(resetPasswordForm);
+    const password = String(data.get("password"));
+    const confirmation = String(data.get("confirmation"));
+    const message = document.querySelector("#reset-password-message");
+    message.textContent = "";
+    if (password !== confirmation) {
+      message.textContent = "Passwords do not match.";
+      message.className = "auth-message error";
+      return;
+    }
+    try {
+      if (remoteMode) {
+        const result = await apiRequest("/api/auth/reset-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: passwordResetToken, password })
+        });
+        message.textContent = result.message;
+      } else {
+        const email = passwordResetToken.slice("local:".length);
+        const users = getUsers();
+        const user = users.find((item) => String(item.email).toLowerCase() === email.toLowerCase());
+        if (!user) throw new Error("This password reset link is invalid.");
+        user.password = password;
+        localStorage.setItem("beammods-users", JSON.stringify(users));
+        message.textContent = "Your password has been changed. You can now sign in.";
+      }
+      message.className = "auth-message success";
+      resetPasswordForm.reset();
+      window.setTimeout(() => {
+        passwordResetModal.hidden = true;
+        authModal.hidden = false;
+        updateAuthForm();
+      }, 1200);
+    } catch (error) {
+      message.textContent = error.message;
+      message.className = "auth-message error";
+    }
 });
 
 authForm.addEventListener("submit", async (event) => {
@@ -1124,11 +1307,18 @@ async function activateAccountFromLink() {
     authMode = "login";
     authModal.hidden = false;
     updateAuthForm();
-    showAuthMessage(result.message, "success");
+    showAuthMessage(result.message || "Your account is active. Welcome to BeamMods.", "success");
     window.history.replaceState({}, document.title, window.location.pathname);
   } catch (error) {
     authModal.hidden = false;
     showAuthMessage(error.message);
+  }
+
+  function openPasswordResetFromLink() {
+    const token = new URLSearchParams(window.location.search).get("reset");
+    if (!token) return;
+    openPasswordReset(token);
+    window.history.replaceState({}, document.title, window.location.pathname);
   }
 }
 
@@ -1324,7 +1514,7 @@ const navObserver = new IntersectionObserver((entries) => {
 navSections.forEach(({ section }) => navObserver.observe(section));
 document.querySelector("#google-sign-in").addEventListener("click", () => {
   if (/^https?:$/i.test(window.location.protocol)) {
-    alert("Google sign-in is not configured yet. Add a Google OAuth client ID and callback URL before enabling it.");
+    window.location.href = "/api/auth/google";
     return;
   }
   const username = window.prompt("Demo Google name:");
@@ -1336,6 +1526,18 @@ document.querySelector("#google-sign-in").addEventListener("click", () => {
   updateAccountButton();
   showDashboard();
 });
+
+function showGoogleAuthResult() {
+  const error = new URLSearchParams(window.location.search).get("google_error");
+  if (!error) return;
+  authMode = "login";
+  authModal.hidden = false;
+  updateAuthForm();
+  showAuthMessage(error === "not_configured"
+    ? "Google login is not configured on the server."
+    : "Google login could not be completed. Try again.", "error");
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -1646,11 +1848,13 @@ async function syncServerSession() {
 }
 
 renderMods();
-Promise.all([syncServerSession(), syncCommunityMods()]).catch((error) => console.warn("Community sync unavailable:", error.message));
+Promise.all([syncServerSession(), syncCommunityMods(), syncUserMods()]).catch((error) => console.warn("Community sync unavailable:", error.message));
 currentUser = readStoredUser();
 updateAccountButton();
 updateAuthForm();
 activateAccountFromLink();
+showGoogleAuthResult();
+openPasswordResetFromLink();
 const savedView = localStorage.getItem("beammods-current-view");
 if (savedView === "dashboard-owner" && currentUser) { showDashboard(); showOwnerPage(); }
 else if (savedView === "dashboard-bug" && currentUser) { showDashboard(); showDashboardBugView(); }

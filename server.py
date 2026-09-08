@@ -17,6 +17,9 @@ import sqlite3
 import time
 import uuid
 import zipfile
+import urllib.error
+import urllib.parse
+import urllib.request
 from decimal import Decimal
 from email.message import EmailMessage
 from email import policy
@@ -32,6 +35,7 @@ UPLOADS = DATA / "uploads"
 DB_PATH = DATA / "beammods.sqlite3"
 MAX_UPLOAD = 95 * 1024 * 1024
 SESSIONS = {}
+GOOGLE_STATES = {}
 PG = None
 
 DATA.mkdir(parents=True, exist_ok=True)
@@ -101,6 +105,7 @@ def inserted_id(connection, cursor):
 OWNER_EMAIL = "beammodshub@gmail.com"
 OWNER_USERNAME = "jerzy"
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "https://beammods.onrender.com").rstrip("/")
+GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", f"{PUBLIC_URL}/api/auth/google/callback")
 
 
 def is_owner_user(user):
@@ -200,6 +205,10 @@ def init_db():
                 connection.execute("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 0")
             if "activation_token" not in user_columns:
                 connection.execute("ALTER TABLE users ADD COLUMN activation_token TEXT")
+            if "reset_token" not in user_columns:
+                connection.execute("ALTER TABLE users ADD COLUMN reset_token TEXT")
+            if "reset_expires_at" not in user_columns:
+                connection.execute("ALTER TABLE users ADD COLUMN reset_expires_at TEXT")
             mod_columns = {row[1] for row in connection.execute("PRAGMA table_info(mods)")}
             if "download_url" not in mod_columns:
                 connection.execute("ALTER TABLE mods ADD COLUMN download_url TEXT")
@@ -213,6 +222,10 @@ def init_db():
             if not column:
                 execute(connection, "ALTER TABLE mods ADD COLUMN download_url TEXT")
             for name, definition in (("is_active", "INTEGER NOT NULL DEFAULT 0"), ("activation_token", "TEXT")):
+                column = execute(connection, "SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name=?", (name,)).fetchone()
+                if not column:
+                    execute(connection, f"ALTER TABLE users ADD COLUMN {name} {definition}")
+            for name, definition in (("reset_token", "TEXT"), ("reset_expires_at", "TEXT")):
                 column = execute(connection, "SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name=?", (name,)).fetchone()
                 if not column:
                     execute(connection, f"ALTER TABLE users ADD COLUMN {name} {definition}")
@@ -316,6 +329,29 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/api/health":
             return self.send_json(200, {"status": "ok"})
+        if parsed.path == "/api/auth/google":
+            client_id = os.environ.get("GOOGLE_CLIENT_ID")
+            client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
+            if not client_id or not client_secret:
+                return self.send_json(503, {"error": "Google login is not configured on the server"})
+            state = secrets.token_urlsafe(32)
+            GOOGLE_STATES[state] = time.time()
+            query = urllib.parse.urlencode({
+                "client_id": client_id,
+                "redirect_uri": GOOGLE_REDIRECT_URI,
+                "response_type": "code",
+                "scope": "openid email profile",
+                "state": state,
+                "access_type": "online",
+                "prompt": "select_account",
+            })
+            self.send_response(302)
+            self.send_header("Location", f"https://accounts.google.com/o/oauth2/v2/auth?{query}")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            return
+        if parsed.path == "/api/auth/google/callback":
+            return self.google_callback(parsed)
         if parsed.path == "/api/me":
             return self.send_json(200, self.public_user())
         if parsed.path == "/api/auth/activate":
@@ -344,6 +380,18 @@ class Handler(BaseHTTPRequestHandler):
                     "(SELECT original_filename FROM mod_versions WHERE mod_id=m.id ORDER BY id DESC LIMIT 1) AS original_filename, "
                     "u.username FROM mods m JOIN users u ON u.id=m.owner_id WHERE m.approved=0 "
                     "ORDER BY m.created_at ASC"))
+            return self.send_json(200, result)
+        if parsed.path == "/api/mods/mine":
+            user = self.require_user()
+            if not user:
+                return
+            with db() as connection:
+                result = rows(execute(connection, "SELECT m.*, "
+                    "(SELECT original_filename FROM mod_versions WHERE mod_id=m.id ORDER BY id DESC LIMIT 1) AS original_filename, "
+                    "u.username, COALESCE(AVG(r.rating),0) AS rating, COUNT(DISTINCT f.user_id) AS favorite_count "
+                    "FROM mods m JOIN users u ON u.id=m.owner_id LEFT JOIN ratings r ON r.mod_id=m.id "
+                    "LEFT JOIN favorites f ON f.mod_id=m.id WHERE m.owner_id=? "
+                    "GROUP BY m.id,u.username ORDER BY m.created_at DESC", (user["id"],)))
             return self.send_json(200, result)
         if parsed.path == "/api/mods":
             with db() as connection:
@@ -379,6 +427,84 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(200, item)
             return self.send_json(404, {"error": "Mod not found"})
         return self.serve_static(parsed.path)
+
+    def google_callback(self, parsed):
+        state = parse_qs(parsed.query).get("state", [""])[0]
+        code = parse_qs(parsed.query).get("code", [""])[0]
+        error = parse_qs(parsed.query).get("error", [""])[0]
+        issued_at = GOOGLE_STATES.pop(state, None)
+        if error:
+            return self.redirect_home("google_error=" + urllib.parse.quote(error))
+        if not code or not issued_at or time.time() - issued_at > 600:
+            return self.redirect_home("google_error=invalid_state")
+        client_id = os.environ.get("GOOGLE_CLIENT_ID")
+        client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
+        if not client_id or not client_secret:
+            return self.redirect_home("google_error=not_configured")
+        try:
+            token_request = urllib.request.Request(
+                "https://oauth2.googleapis.com/token",
+                data=urllib.parse.urlencode({
+                    "code": code,
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "redirect_uri": GOOGLE_REDIRECT_URI,
+                    "grant_type": "authorization_code",
+                }).encode(),
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                method="POST",
+            )
+            with urllib.request.urlopen(token_request, timeout=20) as response:
+                token_data = json.loads(response.read())
+            access_token = token_data.get("access_token")
+            if not access_token:
+                raise ValueError("Google did not return an access token")
+            profile_request = urllib.request.Request(
+                "https://openidconnect.googleapis.com/v1/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            with urllib.request.urlopen(profile_request, timeout=20) as response:
+                profile = json.loads(response.read())
+            email = str(profile.get("email", "")).strip().lower()
+            if not email or not profile.get("email_verified"):
+                raise ValueError("Google account email is not verified")
+            display_name = str(profile.get("name") or email.split("@", 1)[0]).strip()
+            username = self.google_username(display_name, email)
+            with db() as connection:
+                user = execute(connection, "SELECT * FROM users WHERE lower(email)=lower(?)", (email,)).fetchone()
+                if user:
+                    user_id = user["id"] if isinstance(user, dict) else user[0]
+                else:
+                    password = secrets.token_urlsafe(32)
+                    owner = username.lower() == OWNER_USERNAME or email == OWNER_EMAIL
+                    statement = "INSERT INTO users(username,email,password_hash,is_owner,is_active,activation_token,created_at) VALUES(?,?,?,?,?,?,?)"
+                    if not isinstance(connection, sqlite3.Connection):
+                        statement += " RETURNING id"
+                    cursor = execute(connection, statement, (username, email, password_hash(password), int(owner), 1, None, now()))
+                    user_id = inserted_id(connection, cursor)
+            return self.redirect_home("", self.start_session(user_id))
+        except (urllib.error.URLError, json.JSONDecodeError, ValueError, sqlite3.Error, OSError) as error:
+            print(f"Google OAuth failed: {error}")
+            return self.redirect_home("google_error=login_failed")
+
+    def google_username(self, display_name, email):
+        base = "".join(character for character in display_name if character.isalnum() or character in "_-").lower()[:20] or "googleuser"
+        candidate = base
+        suffix = 2
+        with db() as connection:
+            while execute(connection, "SELECT 1 FROM users WHERE lower(username)=lower(?)", (candidate,)).fetchone():
+                candidate = f"{base[:max(3, 24 - len(str(suffix)) - 1)]}-{suffix}"
+                suffix += 1
+        return candidate
+
+    def redirect_home(self, query="", session_token=None):
+        self.send_response(302)
+        self.send_header("Location", f"{PUBLIC_URL}/" + (f"?{query}" if query else ""))
+        if session_token:
+            secure = "; Secure" if self.headers.get("X-Forwarded-Proto", "").lower() == "https" else ""
+            self.send_header("Set-Cookie", f"beammods_session={session_token}; HttpOnly; SameSite=Lax; Path=/{secure}")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
 
     def parse_upload(self):
         length = int(self.headers.get("Content-Length", "0"))
@@ -453,15 +579,58 @@ class Handler(BaseHTTPRequestHandler):
                     cursor = execute(connection, statement,
                                      (data["username"].strip(), email, password_hash(data["password"]), int(owner), 0, activation_token, now()))
                     uid = inserted_id(connection, cursor)
-                    send_email(email, "Activate your BeamMods account",
+                    send_email(email, "Welcome to BeamMods — activate your account",
                                f"Welcome to BeamMods, {data['username'].strip()}!\n\n"
-                               f"Activate your account here:\n{PUBLIC_URL}/?activation={quote(activation_token)}\n\n"
-                               "If you did not create this account, ignore this email.")
+                               "Your account is almost ready. Click the link below to confirm your email and enter the BeamMods community:\n\n"
+                               f"{PUBLIC_URL}/?activation={quote(activation_token)}\n\n"
+                               "This activation link can be used once. If you did not create this account, you can safely ignore this message.\n\n"
+                               "BeamMods\nYour garage. Unlimited.")
                     send_email(email, "BeamMods registration received",
                                f"We received your BeamMods registration for {data['username'].strip()}.\n\n"
                                "Use the activation email to finish creating your account.")
                 return self.send_json(201, {"username": data["username"], "email": email, "is_owner": owner,
-                                            "message": "Registration received. Check your email to activate the account."})
+                                            "message": "Account created. Check your inbox for your BeamMods activation link."})
+            if parsed.path == "/api/auth/forgot-password":
+                data = self.read_json()
+                email = str(data.get("email", "")).strip().lower()
+                if "@" not in email or "." not in email.rsplit("@", 1)[-1]:
+                    return self.send_json(400, {"error": "Enter a valid email address."})
+                with db() as connection:
+                    user = execute(connection, "SELECT id,username FROM users WHERE lower(email)=lower(?)", (email,)).fetchone()
+                    if not user:
+                        return self.send_json(404, {"error": "No BeamMods account was found with that email."})
+                    token = secrets.token_urlsafe(32)
+                    expires = str(int(time.time()) + 3600)
+                    execute(connection, "UPDATE users SET reset_token=?, reset_expires_at=? WHERE lower(email)=lower(?)",
+                            (token, expires, email))
+                    username = user["username"] if isinstance(user, dict) else user[1]
+                send_email(email, "Reset your BeamMods password",
+                           f"Hi {username},\n\n"
+                           "We received a request to reset your BeamMods password.\n\n"
+                           "Use this secure link within the next hour:\n\n"
+                           f"{PUBLIC_URL}/?reset={quote(token)}\n\n"
+                           "If you did not request this, you can ignore this email. Your current password will remain unchanged.\n\n"
+                           "BeamMods\nYour garage. Unlimited.")
+                return self.send_json(200, {"message": "A password reset link has been sent to your email."})
+            if parsed.path == "/api/auth/reset-password":
+                data = self.read_json()
+                token = str(data.get("token", "")).strip()
+                password = str(data.get("password", ""))
+                if len(password) < 8:
+                    return self.send_json(400, {"error": "Password must be at least 8 characters."})
+                with db() as connection:
+                    user = execute(connection, "SELECT id FROM users WHERE reset_token=? AND reset_expires_at IS NOT NULL",
+                                   (token,)).fetchone()
+                    if not user:
+                        return self.send_json(400, {"error": "This password reset link is invalid or expired."})
+                    user_id = user["id"] if isinstance(user, dict) else user[0]
+                    expires = execute(connection, "SELECT reset_expires_at FROM users WHERE id=?", (user_id,)).fetchone()
+                    expires_value = expires["reset_expires_at"] if isinstance(expires, dict) else expires[0]
+                    if int(expires_value) < int(time.time()):
+                        return self.send_json(400, {"error": "This password reset link has expired. Request a new one."})
+                    execute(connection, "UPDATE users SET password_hash=?, reset_token=NULL, reset_expires_at=NULL WHERE id=?",
+                            (password_hash(password), user_id))
+                return self.send_json(200, {"message": "Your password has been changed. You can now sign in."})
             if parsed.path == "/api/auth/login":
                 data = self.read_json()
                 with db() as connection:
@@ -550,7 +719,21 @@ class Handler(BaseHTTPRequestHandler):
         try:
             parts = self.path.strip("/").split("/")
             user = self.require_user()
-            if not user or len(parts) != 3 or parts[:2] != ["api", "mods"]:
+            if not user:
+                return
+            if self.path.split("?", 1)[0] == "/api/me":
+                data = self.read_json()
+                username = str(data.get("username", "")).strip()
+                if not 3 <= len(username) <= 24 or not all(character.isalnum() or character in "_-" for character in username):
+                    return self.send_json(400, {"error": "Username must be 3-24 characters and use only letters, numbers, _ or -"})
+                with db() as c:
+                    existing = execute(c, "SELECT id FROM users WHERE lower(username)=lower(?) AND id<>?",
+                                       (username, user["id"])).fetchone()
+                    if existing:
+                        return self.send_json(409, {"error": "That username is already taken"})
+                    execute(c, "UPDATE users SET username=? WHERE id=?", (username, user["id"]))
+                return self.send_json(200, self.public_user())
+            if len(parts) != 3 or parts[:2] != ["api", "mods"]:
                 return
             data = self.read_json()
             with db() as c:
