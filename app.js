@@ -137,9 +137,26 @@ function leaveStandalonePage() {
   else showLibrary();
 }
 
+let restoringHistory = false;
 function saveView(view) {
   localStorage.setItem("beammods-current-view", view);
+  if (restoringHistory || window.history.state?.view === view) return;
+  const suffix = view === "library" ? "" : `#${view}`;
+  window.history.pushState({ view }, document.title, `${window.location.pathname}${suffix}`);
 }
+
+window.addEventListener("popstate", (event) => {
+  restoringHistory = true;
+  const view = event.state?.view || "library";
+  if (view === "dashboard-published" && currentUser) showDashboard(false);
+  else if (view === "dashboard-owner" && currentUser && isOwnerAccount()) showOwnerPage();
+  else if (view === "dashboard-bug" && currentUser) showDashboardBugView();
+  else if (view === "bug-page") showStandalonePage(bugPage);
+  else if (view === "dmca-page") showStandalonePage(dmcaPage);
+  else if (view === "how-page") showStandalonePage(howPage);
+  else showLibrary();
+  restoringHistory = false;
+});
 
 function showStandalonePage(page) {
   saveView(page === bugPage ? "bug-page" : page === dmcaPage ? "dmca-page" : "how-page");
