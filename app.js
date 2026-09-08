@@ -1506,7 +1506,12 @@ function compressImage(file) {
 async function syncServerSession() {
   if (!remoteMode) return;
   const user = await apiRequest("/api/me");
-  if (!user) return;
+  if (!user) {
+    currentUser = null;
+    localStorage.removeItem("beammods-current-user");
+    updateAccountButton();
+    return;
+  }
   currentUser = {
     username: user.username,
     email: user.email,

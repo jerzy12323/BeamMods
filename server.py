@@ -155,6 +155,9 @@ def init_db():
             CREATE TABLE IF NOT EXISTS bug_reports (
               id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES users(id), mod_id INTEGER REFERENCES mods(id),
               title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS sessions (
+              token TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+              created_at TEXT NOT NULL);
             """
         else:
             schema = """
@@ -174,6 +177,9 @@ def init_db():
               PRIMARY KEY(mod_id,user_id));
             CREATE TABLE IF NOT EXISTS bug_reports (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id),
               mod_id INTEGER REFERENCES mods(id), title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS sessions (
+              token TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+              created_at TEXT NOT NULL);
             """
         if isinstance(connection, sqlite3.Connection):
             connection.executescript(schema)
@@ -247,6 +253,10 @@ class Handler(BaseHTTPRequestHandler):
         jar.load(self.headers.get("Cookie", ""))
         token = jar.get("beammods_session")
         user_id = SESSIONS.get(token.value) if token else None
+        if not user_id and token:
+            with db() as connection:
+                session = execute(connection, "SELECT user_id FROM sessions WHERE token=?", (token.value,)).fetchone()
+                user_id = session["user_id"] if isinstance(session, dict) else (session[0] if session else None)
         if not user_id:
             return None
         with db() as connection:
@@ -539,11 +549,19 @@ class Handler(BaseHTTPRequestHandler):
         with path.open("rb") as stream: shutil.copyfileobj(stream, self.wfile)
 
     def start_session(self, user_id):
-        token = secrets.token_urlsafe(32); SESSIONS[token] = user_id; return token
+        token = secrets.token_urlsafe(32)
+        SESSIONS[token] = user_id
+        with db() as connection:
+            execute(connection, "INSERT INTO sessions(token,user_id,created_at) VALUES(?,?,?)", (token, user_id, now()))
+        return token
 
     def clear_session(self):
         jar = cookies.SimpleCookie(); jar.load(self.headers.get("Cookie", ""))
-        if jar.get("beammods_session"): SESSIONS.pop(jar["beammods_session"].value, None)
+        if jar.get("beammods_session"):
+            token = jar["beammods_session"].value
+            SESSIONS.pop(token, None)
+            with db() as connection:
+                execute(connection, "DELETE FROM sessions WHERE token=?", (token,))
         self.send_response(204); self.send_header("Set-Cookie", "beammods_session=; Max-Age=0; Path=/"); self.end_headers()
 
     def serve_static(self, path):
