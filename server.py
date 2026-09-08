@@ -68,9 +68,8 @@ def db():
                 connection.autocommit = False
             return connection
         except Exception:
-            # A deployment may set DATABASE_URL before installing its optional
-            # driver.  SQLite is a safe, operational fallback.
-            pass
+            if os.environ.get("DATABASE_URL"):
+                raise
     connection = sqlite3.connect(DB_PATH, timeout=30)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
@@ -455,7 +454,14 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    init_db()
+    for attempt in range(12):
+        try:
+            init_db()
+            break
+        except Exception:
+            if attempt == 11:
+                raise
+            time.sleep(5)
     port = int(os.environ.get("PORT", "8000"))
     host = os.environ.get("HOST", "0.0.0.0")
     print(f"BeamMods backend: http://{host}:{port}")
