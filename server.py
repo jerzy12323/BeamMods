@@ -149,6 +149,8 @@ def init_db():
         except Exception as error:
             if "duplicate column" not in str(error).lower() and "already exists" not in str(error).lower():
                 raise
+        if not isinstance(connection, sqlite3.Connection):
+            connection.commit()
 
 
 def now():
@@ -457,6 +459,7 @@ if __name__ == "__main__":
     for attempt in range(12):
         try:
             init_db()
+            print("Database schema ready")
             break
         except Exception:
             if attempt == 11:
