@@ -778,16 +778,14 @@ function openDetails(mod) {
   downloadButton.innerHTML = `${mod.fileId ? "Download ZIP file" : "Open ModsFire download"} <span>${mod.fileId ? "↓" : "↗"}</span>`;
   downloadButton.onclick = async () => {
     if (remoteMode && mod.downloadUrl) {
-      try {
-        const result = await apiRequest(`/api/mods/${mod.id}/download`, { method: "POST" });
-        mod.downloads = result.count;
-        const downloadStat = Array.from(detailsStats.querySelectorAll("span")).find((item) => item.textContent.includes("downloads"));
-        if (downloadStat) downloadStat.textContent = `↓ ${result.count} downloads`;
-      } catch (error) {
-        alert(error.message);
-        return;
-      }
       window.open(getExternalDownloadUrl(mod.downloadUrl), "_blank", "noopener,noreferrer");
+      apiRequest(`/api/mods/${mod.id}/download`, { method: "POST" })
+        .then((result) => {
+          mod.downloads = result.count;
+          const downloadStat = Array.from(detailsStats.querySelectorAll("span")).find((item) => item.textContent.includes("downloads"));
+          if (downloadStat) downloadStat.textContent = `↓ ${result.count} downloads`;
+        })
+        .catch(() => {});
       return;
     }
     if (remoteMode && mod.id) {
