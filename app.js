@@ -683,7 +683,7 @@ function openDetails(mod) {
           mod.likeCount = result.count;
           openDetails(mod);
         })
-        .catch((error) => alert(error.message));
+        .catch((error) => showRequestNotice(error));
       return;
     }
     const store = getLikeStore();
@@ -723,7 +723,7 @@ function openDetails(mod) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ rating: Number(button.dataset.rating) })
-        }).then(() => openDetails(mod)).catch((error) => alert(error.message));
+        }).then(() => openDetails(mod)).catch((error) => showRequestNotice(error));
         return;
       }
       const store = getRatingStore();
@@ -764,8 +764,22 @@ function openDetails(mod) {
       .catch((error) => { document.querySelector("#details-comments-list").innerHTML = `<p class="comments-empty">${escapeHtml(error.message)}</p>`; });
   }
   const commentForm = document.querySelector("#details-comment-form");
+  const commentInput = commentForm.querySelector("textarea");
+  const commentSubmit = commentForm.querySelector(".comment-submit");
+  const commentAuthNote = document.querySelector("#comment-auth-note");
+  const canComment = Boolean(currentUser);
+  commentInput.disabled = !canComment;
+  commentSubmit.disabled = !canComment;
+  commentAuthNote.hidden = canComment;
+  commentInput.placeholder = canComment
+    ? "Share feedback, installation tips or questions..."
+    : "Sign in to write a comment";
   commentForm.onsubmit = async (event) => {
     event.preventDefault();
+    if (!currentUser) {
+      showActionNotice("Sign in to comment", "Please sign in to your BeamMods account before posting in the community discussion.");
+      return;
+    }
     const data = new FormData(commentForm);
     const body = String(data.get("comment") || "").trim();
     if (!body) return;
@@ -779,13 +793,13 @@ function openDetails(mod) {
         commentForm.reset();
         openDetails(mod);
       } catch (error) {
-        alert(error.message);
+        showRequestNotice(error);
       }
       return;
     }
     const store = getCommentStore();
     store[mod.name] = [...(store[mod.name] || []), {
-      author: currentUser ? `@${currentUser.username}` : "Guest player",
+      author: `@${currentUser.username}`,
       body,
       date: new Date().toLocaleDateString()
     }];
@@ -821,7 +835,7 @@ function openDetails(mod) {
         link.click();
         setTimeout(() => URL.revokeObjectURL(link.href), 1000);
       } catch (error) {
-        alert(error.message);
+        showRequestNotice(error);
       }
       return;
     }
@@ -844,7 +858,7 @@ function openDetails(mod) {
     if (mod.fileId) {
       const file = await getModFile(mod.fileId);
       if (!file) {
-        alert("The local ZIP file could not be found. Please upload it again.");
+        showActionNotice("Download unavailable", "This local ZIP file is no longer available. Please upload it again or add an external download link.");
         return;
       }
       const link = document.createElement("a");
@@ -855,7 +869,7 @@ function openDetails(mod) {
     } else if (mod.downloadUrl) {
       window.open(getExternalDownloadUrl(mod.downloadUrl), "_blank", "noopener");
     } else {
-      alert("This uploaded ZIP is no longer available after refreshing the demo. Please upload it again or add a download link.");
+      showActionNotice("Download unavailable", "This uploaded ZIP is no longer available after refreshing the demo. Please upload it again or add an external download link.");
     }
   };
   const deleteButton = document.querySelector("#details-delete");
@@ -1085,7 +1099,7 @@ document.querySelector("#profile-image-input").addEventListener("change", async 
   if (!image) return;
   if (!["image/png", "image/jpeg", "image/webp"].includes(image.type)) {
     event.target.value = "";
-    alert("Choose a PNG, JPG or WEBP profile image.");
+    showActionNotice("Profile photo unavailable", "Choose a PNG, JPG or WEBP image to update your profile photo.");
     return;
   }
   askConfirmation("Use this profile photo?", "This image will replace your current profile photo on this device.", async () => {
@@ -1591,6 +1605,14 @@ function showActionNotice(title, message) {
   confirmModal.querySelector(".eyebrow").textContent = "BeamMods update";
   document.querySelector("#confirm-cancel").hidden = true;
   document.querySelector("#confirm-accept").textContent = "Done";
+}
+function showRequestNotice(error) {
+  const message = error?.message || "The request could not be completed. Please try again.";
+  if (message.toLowerCase() === "sign in required") {
+    showActionNotice("Sign in to continue", "Please sign in to your BeamMods account before using this community feature.");
+    return;
+  }
+  showActionNotice("Action unavailable", message);
 }
 document.querySelector("#browse-link").addEventListener("click", (event) => {
   event.preventDefault();

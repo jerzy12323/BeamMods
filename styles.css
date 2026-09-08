@@ -777,9 +777,11 @@ body { background: radial-gradient(circle at 80% -10%, rgba(54, 81, 112, .22), t
 .comment-item time { color: #81909d; font-family: "DM Mono", monospace; font-size: 9px; }
 .comment-item p { margin: 9px 0 0; color: #b7c5cf; font-size: 13px; line-height: 1.55; white-space: pre-wrap; }
 .comments-empty { color: #81909d; font-size: 13px; }
+.comment-auth-note { margin: 14px 0 0; border: 1px solid rgba(255,103,70,.22); border-radius: 10px; padding: 11px 13px; color: #ffc2ae; background: rgba(255,103,70,.08); font-size: 12px; line-height: 1.5; }
 #details-comment-form { display: grid; gap: 10px; margin-top: 16px; }
 #details-comment-form textarea { min-height: 86px; resize: vertical; }
 .comment-submit { justify-self: end; border: 0; border-radius: 9px; padding: 11px 15px; color: #111a27; background: var(--orange); cursor: pointer; font-size: 12px; font-weight: 700; }
+.comment-submit:disabled, #details-comment-form textarea:disabled { cursor: not-allowed; opacity: .5; }
 .comment-submit span { margin-left: 12px; }
 @media (max-width: 520px) {
   .details-cover { height: 180px; margin: -35px -24px 25px; }
