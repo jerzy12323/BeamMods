@@ -678,6 +678,7 @@ pagination.addEventListener("click", (event) => {
 const uploadModal = document.querySelector("#upload-modal");
 const detailsModal = document.querySelector("#details-modal");
 const securityModal = document.querySelector("#security-modal");
+const securityClose = document.querySelector("#security-close");
 const confirmModal = document.querySelector("#confirm-modal");
 const bugModal = document.querySelector("#bug-modal");
 const dmcaModal = document.querySelector("#dmca-modal");
@@ -882,6 +883,7 @@ document.querySelectorAll("[data-close-details]").forEach((button) => {
 securityModal.addEventListener("click", (event) => {
   if (event.target === securityModal) securityModal.hidden = true;
 });
+securityClose.addEventListener("click", () => { securityModal.hidden = true; });
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     resetUploadForm();
@@ -1223,6 +1225,9 @@ form.addEventListener("submit", (event) => {
     return;
   }
   securityModal.hidden = false;
+  securityModal.querySelector(".security-modal").classList.remove("is-complete");
+  securityClose.hidden = true;
+  document.querySelector("#security-title").innerHTML = "Checking your <em>file.</em>";
   uploadStatus.textContent = "Checking your upload...";
   uploadStatus.className = "upload-status";
   const publishButton = document.querySelector("#publish-submit");
@@ -1230,8 +1235,15 @@ form.addEventListener("submit", (event) => {
   publishButton.innerHTML = "Preparing your upload <span>…</span>";
   document.querySelector("#security-progress").style.width = "0%";
   document.querySelector("#security-message").textContent = "Inspecting file name, type and size...";
-  setTimeout(() => { document.querySelector("#security-progress").style.width = "100%"; }, 450);
-  setTimeout(() => finishUpload(data, file, images, source, downloadUrl), 950);
+  window.setTimeout(() => { document.querySelector("#security-progress").style.width = "100%"; }, 450);
+  window.setTimeout(() => {
+    finishUpload(data, file, images, source, downloadUrl).catch((error) => {
+      securityModal.hidden = true;
+      document.querySelector("#publish-submit").disabled = false;
+      document.querySelector("#publish-submit").innerHTML = "Publish mod <span>↗</span>";
+      showUploadMessage(error.message || "The mod could not be submitted. Please try again.", "error");
+    });
+  }, 950);
 });
 
 async function finishUpload(data, file, images, source, downloadUrl) {
@@ -1258,11 +1270,11 @@ async function finishUpload(data, file, images, source, downloadUrl) {
     const upload = new FormData();
     ["name", "category", "author", "description", "version", "configs"].forEach((field) => upload.append(field, data.get(field)));
     if (source === "file" && file) upload.append("file", file, file.name);
-    if (validImages[0]) {
-      const normalizedPreview = await dataUrlToBlob(imageUrls[0]);
-      upload.append("preview", normalizedPreview, `${validImages[0].name.replace(/\.[^.]+$/, "")}.jpg`);
-    }
     try {
+      if (validImages[0]) {
+        const normalizedPreview = await dataUrlToBlob(imageUrls[0]);
+        upload.append("preview", normalizedPreview, `${validImages[0].name.replace(/\.[^.]+$/, "")}.jpg`);
+      }
       const remoteMod = await apiRequest("/api/mods", { method: "POST", body: upload });
       mods.unshift({
         id: remoteMod.id,
@@ -1290,10 +1302,18 @@ async function finishUpload(data, file, images, source, downloadUrl) {
         fileName: remoteMod.original_filename || ""
       });
       resetUploadForm();
-      uploadModal.hidden = false;
+      uploadModal.hidden = true;
       renderMods();
       showDashboard();
-      showUploadMessage(`"${remoteMod.name}" was submitted successfully. The owner must approve it before it becomes public. Please allow a few hours for review.`, "success");
+      const securityCard = securityModal.querySelector(".security-modal");
+      securityCard.classList.add("is-complete");
+      document.querySelector("#security-title").innerHTML = "Mod sent for <em>review.</em>";
+      document.querySelector("#security-message").textContent = `"${remoteMod.name}" was uploaded successfully.`;
+      document.querySelector("#security-progress").style.width = "100%";
+      securityClose.hidden = false;
+      uploadStatus.textContent = "The owner must approve this mod before it becomes public. Review usually takes a few hours.";
+      uploadStatus.className = "upload-status success";
+      securityModal.hidden = false;
     } catch (error) {
       showUploadMessage(error.message, "error");
     }

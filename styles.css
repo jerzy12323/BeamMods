@@ -513,6 +513,10 @@ body { background: radial-gradient(circle at 80% -10%, rgba(54, 81, 112, .22), t
 @keyframes uploadPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,103,70,.28); } 50% { box-shadow: 0 0 0 8px rgba(255,103,70,0); } }
 .upload-drop:focus-within { border-color: var(--orange); animation: uploadPulse 1.6s ease-in-out infinite; }
 .submit-button:disabled { cursor: wait; opacity: .65; transform: none; }
+.security-modal { width: min(100%, 620px); text-align: center; }
+.security-modal .security-close { margin-top: 22px; text-align: center; }
+.security-modal.is-complete .security-dot { background: var(--acid); box-shadow: 0 0 0 6px rgba(157,226,64,.12); }
+.security-modal.is-complete .security-bar span { background: var(--acid); }
 .file-drop img { width: 100%; max-height: 130px; border-radius: 8px; object-fit: cover; }
 .modal input, .modal select, .modal textarea, .dashboard-bug-form input, .dashboard-bug-form select, .dashboard-bug-form textarea { border-radius: 8px; border-color: rgba(164,188,212,.26); background: #101d2e; }
 .modal input:focus, .modal select:focus, .modal textarea:focus, .dashboard-bug-form input:focus, .dashboard-bug-form select:focus, .dashboard-bug-form textarea:focus { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(255,103,70,.12); }
