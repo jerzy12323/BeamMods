@@ -245,6 +245,14 @@ h2 { font-size: clamp(43px, 5.2vw, 70px); }
 .info-modal p:not(.eyebrow):not(.form-note) { color: #b7c2ca; font-size: 14px; line-height: 1.7; }
 .modal-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(4,8,13,.78); }
 .modal-backdrop[hidden] { display: none; }
+.google-pending-notice { position: fixed; z-index: 30; top: 92px; left: 50%; display: grid; grid-template-columns: auto 1fr; gap: 18px; width: min(680px, calc(100% - 32px)); box-sizing: border-box; padding: 24px 52px 24px 24px; border: 1px solid rgba(157,226,64,.42); border-radius: 16px; background: linear-gradient(145deg, #20364b, #132238); box-shadow: 0 22px 60px rgba(0,0,0,.42), 0 0 0 5px rgba(157,226,64,.05); transform: translateX(-50%); animation: dashboardIn .45s cubic-bezier(.2,.75,.25,1) both; }
+.google-pending-notice[hidden] { display: none; }
+.google-pending-icon { display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid rgba(157,226,64,.7); border-radius: 50%; color: #d9ff9d; background: rgba(157,226,64,.12); font-size: 20px; font-weight: 700; }
+.google-pending-notice .eyebrow { margin: 0 0 7px; color: #d9ff9d; }
+.google-pending-notice h2 { margin: 0 0 8px; color: #f4f8f8; font-size: 20px; }
+.google-pending-notice p:last-child { margin: 0; color: #b8c8d3; font-size: 14px; line-height: 1.6; }
+.google-pending-close { position: absolute; top: 12px; right: 15px; border: 0; color: #aebdca; background: transparent; cursor: pointer; font-size: 24px; line-height: 1; }
+.google-pending-close:hover { color: #fff; }
 .modal { position: relative; width: min(100%, 460px); max-height: calc(100vh - 32px); overflow-y: auto; padding: 32px; color: #e5eaed; background: #202b3a; box-shadow: 0 30px 80px rgba(0,0,0,.55); }
 .modal-backdrop#auth-modal { background: #0d1520; }
 .modal-backdrop#auth-modal .auth-modal { width: min(100%, 620px); background: #111c2c; animation: dashboardIn .55s cubic-bezier(.2,.75,.25,1) both; }

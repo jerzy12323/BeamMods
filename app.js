@@ -1,6 +1,11 @@
 const defaultMods = [];
 const remoteMode = /^https?:$/i.test(window.location.protocol);
 const remoteUploadLimit = 95 * 1024 * 1024;
+const removedDemoEmails = new Set([
+  "chmurkaplis@gmail.com",
+  "niewime3@gmail.com",
+  "kacperekmisiak407@gmail.com"
+]);
 async function apiRequest(path, options = {}) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), options.timeoutMs || 120000);
@@ -144,8 +149,22 @@ function readStoredUser() {
 }
 
 function getUsers() {
-  return JSON.parse(localStorage.getItem("beammods-users") || "[]");
+  const users = JSON.parse(localStorage.getItem("beammods-users") || "[]");
+  const remaining = users.filter((user) => !removedDemoEmails.has(String(user.email || "").toLowerCase()));
+  if (remaining.length !== users.length) localStorage.setItem("beammods-users", JSON.stringify(remaining));
+  const saved = localStorage.getItem("beammods-current-user");
+  if (saved) {
+    try {
+      const current = JSON.parse(saved);
+      if (removedDemoEmails.has(String(current.email || "").toLowerCase())) localStorage.removeItem("beammods-current-user");
+    } catch {
+      localStorage.removeItem("beammods-current-user");
+    }
+  }
+  return remaining;
 }
+getUsers();
+if (currentUser && removedDemoEmails.has(String(currentUser.email || "").toLowerCase())) currentUser = null;
 
 function isOwnerAccount(user = currentUser) {
   return Boolean(user && (
@@ -1615,6 +1634,15 @@ function showGoogleAuthResult() {
   const error = params.get("google_error");
   const pending = params.get("google_pending");
   if (!error && !pending) return;
+  if (pending) {
+    authModal.hidden = true;
+    document.querySelector("#google-pending-notice").hidden = false;
+    document.querySelector("#google-pending-close").onclick = () => {
+      document.querySelector("#google-pending-notice").hidden = true;
+    };
+    window.history.replaceState({}, document.title, window.location.pathname);
+    return;
+  }
   authMode = "login";
   authModal.hidden = false;
   updateAuthForm();
