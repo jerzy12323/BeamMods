@@ -97,7 +97,7 @@ localStorage.setItem("beammods-mods", JSON.stringify(mods));
 let authMode = "login";
 let currentUser = readStoredUser();
 const ownerUsernames = [localStorage.getItem("beammods-owner-username"), "jerzy", "testuser", "owner", "admin"].filter(Boolean);
-const ownerEmail = "jerzykisielewski84@gmail.com";
+const ownerEmails = ["beammodshub@gmail.com"];
 const authModal = document.querySelector("#auth-modal");
 const authForm = document.querySelector("#auth-form");
 const dashboardPage = document.querySelector("#dashboard-page");
@@ -116,6 +116,13 @@ function readStoredUser() {
 
 function getUsers() {
   return JSON.parse(localStorage.getItem("beammods-users") || "[]");
+}
+
+function isOwnerAccount(user = currentUser) {
+  return Boolean(user && (
+    ownerUsernames.includes(String(user.username || "").toLowerCase()) ||
+    ownerEmails.includes(String(user.email || "").toLowerCase())
+  ));
 }
 
 function updateAccountButton() {
@@ -157,7 +164,7 @@ function showDashboard() {
   document.querySelector("#profile-mods").innerHTML = ownMods.length
     ? ownMods.map((mod) => `<div class="profile-mod"><div class="profile-mod-image" style="${mod.image ? `background-image:url('${escapeHtml(mod.image)}')` : ""}">${mod.image ? "" : escapeHtml(mod.icon)}</div><div class="profile-mod-main"><strong>${escapeHtml(mod.name)}</strong><span>${new Date(mod.publishedAt).toLocaleDateString()} · ${escapeHtml(mod.category)} · ${mod.approved === false ? "Pending owner approval" : "Approved"}</span></div><button class="text-button delete-mod" data-mod-name="${escapeHtml(mod.name)}">Delete</button></div>`).join("")
     : "<p class='form-note'>You have not published any mods yet.</p>";
-  const isOwner = ownerUsernames.includes(currentUser.username.toLowerCase());
+  const isOwner = isOwnerAccount();
   document.querySelector("#owner-panel-link").hidden = !isOwner;
   if (isOwner) renderPendingMods();
 }
@@ -212,7 +219,7 @@ function showPublishedView() {
 }
 
 function showOwnerPage() {
-  if (!currentUser || !ownerUsernames.includes(currentUser.username.toLowerCase())) return;
+  if (!isOwnerAccount()) return;
   saveView("dashboard-owner");
   document.body.classList.add("dashboard-mode");
   bugPage.hidden = true;
@@ -1283,7 +1290,7 @@ async function finishUpload(data, file, images, source, downloadUrl) {
     }
     return;
   }
-  const isOwner = ownerUsernames.includes(currentUser.username.toLowerCase());
+  const isOwner = isOwnerAccount();
   const fileId = source === "file" && file ? await saveModFile(file) : "";
   const newMod = {
     name: data.get("name"),

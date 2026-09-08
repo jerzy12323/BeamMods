@@ -97,7 +97,7 @@ def inserted_id(connection, cursor):
     return row["id"] if isinstance(row, dict) else row[0]
 
 
-OWNER_EMAIL = "jerzykisielewski84@gmail.com"
+OWNER_EMAIL = "beammodshub@gmail.com"
 OWNER_USERNAME = "jerzy"
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "https://beammods.onrender.com").rstrip("/")
 
