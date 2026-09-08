@@ -19,10 +19,10 @@ button, input, select, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 a { color: inherit; text-decoration: none; }
 .noise { display: none; }
-.site-header { display: flex; align-items: center; justify-content: space-between; height: 82px; padding: 0 6vw; border-bottom: 1px solid rgba(168,185,198,.15); background: #192231; }
+.site-header { display: flex; align-items: center; justify-content: space-between; height: 82px; padding: 0 6vw; border-bottom: 1px solid rgba(168,185,198,.15); background: rgba(14,20,29,.86); backdrop-filter: blur(8px); }
 .brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 700; letter-spacing: -.08em; }
 .brand span:last-child span { color: var(--orange); }
-.brand-mark { display: grid; width: 31px; height: 31px; place-items: center; color: #eef4f6; background: var(--orange); font-size: 17px; font-style: italic; letter-spacing: -.1em; }
+.brand-mark { display: grid; width: 31px; height: 31px; place-items: center; color: #eef4f6; background: var(--orange); border-radius: 4px; font-size: 17px; font-style: italic; letter-spacing: -.1em; box-shadow: 0 0 20px rgba(255,103,70,.3); }
 .main-nav { display: flex; gap: 35px; margin-left: 90px; font-size: 12px; font-weight: 500; }
 .main-nav a { position: relative; padding: 33px 0; color: #aebac3; transition: color .2s ease; }
 .main-nav a.active, .main-nav a:hover { color: #eef4f6; }
@@ -32,22 +32,23 @@ a { color: inherit; text-decoration: none; }
 .account-button:hover { background: var(--orange); color: var(--ink); transform: translateY(-2px); }
 .upload-button { padding: 13px 18px; }
 .upload-button span { margin-right: 7px; font-size: 18px; line-height: 0; vertical-align: -2px; }
-.hero { display: grid; min-height: 530px; grid-template-columns: .9fr 1.1fr; overflow: hidden; border-bottom: 1px solid rgba(168,185,198,.15); background: #1b2532; }
-.hero-copy { display: flex; flex-direction: column; justify-content: center; padding: 75px 6vw; }
+.hero { display: grid; min-height: 650px; grid-template-columns: minmax(0, 0.9fr) minmax(420px, 1.1fr); overflow: hidden; border-bottom: 1px solid rgba(168,185,198,.15); background: linear-gradient(90deg, rgba(8,14,22,.96), rgba(8,14,22,.82)); }
+.hero-copy { display: flex; flex-direction: column; justify-content: center; padding: 72px 6vw 64px; }
 .hero-copy h1 { color: #edf2f4; text-shadow: 0 8px 26px rgba(0,0,0,.3); }
 .hero-copy .hero-cta, .how-section .outline-button { border-color: rgba(229,234,237,.45); color: #edf2f4; }
 .eyebrow { margin: 0 0 18px; color: var(--orange); font-family: "DM Mono", monospace; font-size: 10px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; }
 .pulse { display: inline-block; width: 7px; height: 7px; margin: 0 8px 1px 0; border-radius: 50%; background: var(--orange); box-shadow: 0 0 0 4px rgba(255, 91, 50, .17); }
 h1, h2 { margin: 0; letter-spacing: -.075em; line-height: .94; }
-h1 { max-width: 520px; font-size: clamp(55px, 7.4vw, 104px); font-weight: 700; }
+h1 { max-width: 520px; font-size: clamp(64px, 7vw, 128px); font-weight: 700; }
 h1 em, h2 em { color: var(--orange); font-style: normal; }
-.hero-description { max-width: 320px; margin: 27px 0 35px; color: #aebbc3; font-size: 14px; line-height: 1.6; }
-.hero-cta, .outline-button { display: inline-flex; align-items: center; justify-content: space-between; width: 205px; border-bottom: 1px solid var(--ink); padding: 0 0 11px; font-size: 12px; font-weight: 700; }
+.hero-description { max-width: 440px; margin: 27px 0 35px; color: #aebbc3; font-size: 18px; line-height: 1.5; }
+.hero-cta, .outline-button { display: inline-flex; align-items: center; justify-content: space-between; width: 215px; border-bottom: 1px solid rgba(255,255,255,.18); padding: 0 0 11px; font-size: 12px; font-weight: 700; }
 .outline-button { border: 1px solid var(--orange); border-radius: 3px; padding: 13px 15px; color: #fff3ed !important; background: rgba(240,91,61,.12); }
 .hero-cta span, .outline-button span, .submit-button span { color: var(--orange); font-size: 18px; }
-.hero-art { position: relative; overflow: hidden; background: linear-gradient(90deg, rgba(8,15,20,.78), rgba(8,15,20,.08)), url("bmw-m4-g82.png") center 57%/cover; animation: heroReveal 1.1s ease both; }
-.hero-grid { position: absolute; inset: 0; opacity: .18; background-image: linear-gradient(rgba(240,239,233,.2) 1px, transparent 1px), linear-gradient(90deg, rgba(240,239,233,.2) 1px, transparent 1px); background-size: 42px 42px; transform: perspective(450px) rotateX(55deg) scale(1.7) translateY(35%); }
-.speed-line { position: absolute; width: 75%; height: 1px; background: var(--orange); opacity: .8; transform: rotate(-14deg); }
+.hero-art { position: relative; overflow: hidden; background: linear-gradient(90deg, rgba(12,18,26,.15), rgba(12,18,26,.5)), url("bmw-m4-g82.png") center 57%/cover no-repeat; animation: heroReveal 1.1s ease both; }
+.hero-art::before { position: absolute; inset: 0; background: radial-gradient(circle at 34% 50%, rgba(255,94,62,.2), transparent 30%), radial-gradient(circle at 70% 30%, rgba(255,60,60,.16), transparent 26%); content: ""; }
+.hero-grid { position: absolute; inset: 0; opacity: .12; background-image: linear-gradient(rgba(240,239,233,.2) 1px, transparent 1px), linear-gradient(90deg, rgba(240,239,233,.2) 1px, transparent 1px); background-size: 42px 42px; transform: perspective(450px) rotateX(55deg) scale(1.7) translateY(35%); }
+.speed-line { position: absolute; width: 75%; height: 1px; background: rgba(255,103,70,.9); opacity: .8; transform: rotate(-14deg); }
 .line-one { top: 29%; left: 4%; } .line-two { top: 64%; left: 22%; opacity: .35; }
 .car-silhouette { position: absolute; top: 44%; left: 47%; width: 390px; height: 125px; transform: skewX(-15deg) rotate(-2deg); filter: drop-shadow(0 20px 22px rgba(0,0,0,.7)); }
 .car-body { position: absolute; bottom: 18px; width: 100%; height: 62px; border-radius: 28px 55px 12px 11px; background: linear-gradient(120deg, #f1f0ea, #a6aba5 52%, #454a47); }
@@ -347,6 +348,7 @@ h2 { font-size: clamp(43px, 5.2vw, 70px); }
 .home-cta-heading h2 { color: #edf2f4; font-size: clamp(48px, 6vw, 82px); }
 .home-cta-heading em { color: var(--orange); font-style: normal; }
 .home-cta-content > p { max-width: 640px; margin: 0 0 28px; color: #c4d1dc; font-size: 16px; line-height: 1.65; }
+.form-error { min-height: 18px; color: #ff9272; }
 .home-cta-steps { display: grid; gap: 10px; margin-bottom: 28px; }
 .home-cta-steps article {
   display: grid;
@@ -517,10 +519,10 @@ body { background: radial-gradient(circle at 80% -10%, rgba(54, 81, 112, .22), t
 .site-footer { border-top: 1px solid rgba(157,181,204,.14); background: rgba(10,17,28,.5); }
 
 /* Elevated card and detail states */
-.site-header { position: sticky; top: 0; z-index: 12; background: rgba(25,34,49,.92); backdrop-filter: blur(14px); }
-.hero { background: linear-gradient(110deg, #172231 0%, #111a27 54%, #0d1520 100%); }
-.hero-copy { position: relative; z-index: 1; }
-.hero-art { box-shadow: inset 18px 0 40px rgba(16,18,18,.12); }
+.site-header { position: sticky; top: 0; z-index: 12; display: flex; align-items: center; justify-content: space-between; height: 82px; padding: 0 6vw; border-bottom: 1px solid rgba(168,185,198,.15); background: rgba(14,20,29,.86); backdrop-filter: blur(10px); box-shadow: 0 10px 30px rgba(0,0,0,.14); }
+.hero { display: grid; min-height: 650px; grid-template-columns: minmax(0, 0.9fr) minmax(420px, 1.1fr); overflow: hidden; border-bottom: 1px solid rgba(168,185,198,.15); background: linear-gradient(90deg, rgba(8,14,22,.96), rgba(8,14,22,.82)); }
+.hero-copy { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: center; padding: 72px 6vw 64px; }
+.hero-art { position: relative; overflow: hidden; background: linear-gradient(90deg, rgba(12,18,26,.15), rgba(12,18,26,.5)), url("bmw-m4-g82.png") center 57%/cover no-repeat; box-shadow: inset 18px 0 40px rgba(16,18,18,.12); }
 .mod-card { transition: transform .25s ease, filter .25s ease; }
 .mod-card:hover, .mod-card:focus-visible { transform: translateY(-7px); filter: drop-shadow(0 14px 16px rgba(16,18,18,.12)); outline: 0; }
 .mod-cover { border-radius: 3px; }

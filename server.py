@@ -11,17 +11,19 @@ import json
 import mimetypes
 import os
 import secrets
+import smtplib
 import shutil
 import sqlite3
 import time
 import uuid
 import zipfile
+from email.message import EmailMessage
 from email import policy
 from email.parser import BytesParser
 from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import quote, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 ROOT = Path(__file__).resolve().parent
 DATA = Path(os.environ.get("DATA_DIR", str(ROOT / "data")))
@@ -91,7 +93,38 @@ def rows(cursor):
 def inserted_id(connection, cursor):
     if isinstance(connection, sqlite3.Connection):
         return cursor.lastrowid
-    return cursor.fetchone()[0]
+    row = cursor.fetchone()
+    return row["id"] if isinstance(row, dict) else row[0]
+
+
+OWNER_EMAIL = "jerzykisielewski84@gmail.com"
+OWNER_USERNAME = "jerzy"
+PUBLIC_URL = os.environ.get("PUBLIC_URL", "https://beammods.onrender.com").rstrip("/")
+
+
+def is_owner_user(user):
+    return bool(user and (user.get("is_owner") or
+                          user.get("username", "").lower() == OWNER_USERNAME or
+                          user.get("email", "").lower() == OWNER_EMAIL))
+
+
+def send_email(recipient, subject, body):
+    host = os.environ.get("SMTP_HOST")
+    username = os.environ.get("SMTP_USER")
+    password = os.environ.get("SMTP_PASSWORD")
+    sender = os.environ.get("MAIL_FROM", username or "")
+    if not host or not username or not password or not sender:
+        raise RuntimeError("Email service is not configured. Add SMTP_HOST, SMTP_USER, SMTP_PASSWORD and MAIL_FROM in Render.")
+    message = EmailMessage()
+    message["From"] = sender
+    message["To"] = recipient
+    message["Subject"] = subject
+    message.set_content(body)
+    port = int(os.environ.get("SMTP_PORT", "587"))
+    with smtplib.SMTP(host, port, timeout=20) as smtp:
+        smtp.starttls()
+        smtp.login(username, password)
+        smtp.send_message(message)
 
 
 def init_db():
@@ -100,7 +133,8 @@ def init_db():
             schema = """
             CREATE TABLE IF NOT EXISTS users (
               id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, email TEXT UNIQUE NOT NULL,
-              password_hash TEXT NOT NULL, is_owner INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+              password_hash TEXT NOT NULL, is_owner INTEGER NOT NULL DEFAULT 0, is_active INTEGER NOT NULL DEFAULT 0,
+              activation_token TEXT, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS mods (
               id INTEGER PRIMARY KEY, owner_id INTEGER NOT NULL REFERENCES users(id),
               name TEXT NOT NULL, category TEXT NOT NULL, author TEXT NOT NULL, description TEXT NOT NULL,
@@ -125,7 +159,8 @@ def init_db():
         else:
             schema = """
             CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, email TEXT UNIQUE NOT NULL,
-              password_hash TEXT NOT NULL, is_owner INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+              password_hash TEXT NOT NULL, is_owner INTEGER NOT NULL DEFAULT 0, is_active INTEGER NOT NULL DEFAULT 0,
+              activation_token TEXT, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS mods (id SERIAL PRIMARY KEY, owner_id INTEGER NOT NULL REFERENCES users(id), name TEXT NOT NULL,
               category TEXT NOT NULL, author TEXT NOT NULL, description TEXT NOT NULL, version TEXT NOT NULL, configs INTEGER NOT NULL DEFAULT 0,
               image_path TEXT, approved INTEGER NOT NULL DEFAULT 0, download_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
@@ -137,6 +172,8 @@ def init_db():
               rating INTEGER NOT NULL, PRIMARY KEY(mod_id,user_id));
             CREATE TABLE IF NOT EXISTS favorites (mod_id INTEGER REFERENCES mods(id) ON DELETE CASCADE, user_id INTEGER REFERENCES users(id),
               PRIMARY KEY(mod_id,user_id));
+            CREATE TABLE IF NOT EXISTS bug_reports (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id),
+              mod_id INTEGER REFERENCES mods(id), title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL);
             """
         if isinstance(connection, sqlite3.Connection):
             connection.executescript(schema)
@@ -148,11 +185,20 @@ def init_db():
             columns = {row[1] for row in connection.execute("PRAGMA table_info(mod_versions)")}
             if "original_filename" not in columns:
                 connection.execute("ALTER TABLE mod_versions ADD COLUMN original_filename TEXT")
+            user_columns = {row[1] for row in connection.execute("PRAGMA table_info(users)")}
+            if "is_active" not in user_columns:
+                connection.execute("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 0")
+            if "activation_token" not in user_columns:
+                connection.execute("ALTER TABLE users ADD COLUMN activation_token TEXT")
         else:
             column = execute(connection, "SELECT 1 FROM information_schema.columns "
                               "WHERE table_name='mod_versions' AND column_name='original_filename'").fetchone()
             if not column:
                 execute(connection, "ALTER TABLE mod_versions ADD COLUMN original_filename TEXT")
+            for name, definition in (("is_active", "INTEGER NOT NULL DEFAULT 0"), ("activation_token", "TEXT")):
+                column = execute(connection, "SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name=?", (name,)).fetchone()
+                if not column:
+                    execute(connection, f"ALTER TABLE users ADD COLUMN {name} {definition}")
         if not isinstance(connection, sqlite3.Connection):
             connection.commit()
 
@@ -216,7 +262,7 @@ class Handler(BaseHTTPRequestHandler):
             "id": user["id"],
             "username": user["username"],
             "email": user["email"],
-            "is_owner": user["is_owner"],
+            "is_owner": int(is_owner_user(user)),
             "created_at": user["created_at"],
         }
 
@@ -242,6 +288,23 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(200, {"status": "ok"})
         if parsed.path == "/api/me":
             return self.send_json(200, self.public_user())
+        if parsed.path == "/api/auth/activate":
+            token = parse_qs(urlparse(self.path).query).get("token", [""])[0]
+            if not token:
+                return self.send_json(400, {"error": "Activation token is missing"})
+            with db() as connection:
+                user = execute(connection, "SELECT id,email,username FROM users WHERE activation_token=?", (token,)).fetchone()
+                if not user:
+                    return self.send_json(400, {"error": "This activation link is invalid or already used"})
+                user_id = user["id"] if isinstance(user, dict) else user[0]
+                email = user["email"] if isinstance(user, dict) else user[1]
+                username = user["username"] if isinstance(user, dict) else user[2]
+                execute(connection, "UPDATE users SET is_active=1, activation_token=NULL WHERE id=?", (user_id,))
+            try:
+                send_email(email, "BeamMods account activated", f"Hi {username},\n\nYour BeamMods account is now active. You can sign in at {PUBLIC_URL}/")
+            except RuntimeError:
+                pass
+            return self.send_json(200, {"ok": True, "message": "Your account is active. You can now sign in."})
         if parsed.path == "/api/mods":
             with db() as connection:
                 result = rows(execute(connection, "SELECT m.*, (SELECT original_filename FROM mod_versions WHERE mod_id=m.id ORDER BY id DESC LIMIT 1) AS original_filename, u.username, COALESCE(AVG(r.rating),0) AS rating, "
@@ -249,6 +312,13 @@ class Handler(BaseHTTPRequestHandler):
                     "LEFT JOIN ratings r ON r.mod_id=m.id LEFT JOIN favorites f ON f.mod_id=m.id WHERE m.approved=1 "
                     "GROUP BY m.id,u.username ORDER BY m.created_at DESC"))
             return self.send_json(200, result)
+        if parsed.path == "/api/reports":
+            user = self.require_user()
+            if not is_owner_user(user):
+                return self.send_json(403, {"error": "Owner access required"})
+            with db() as connection:
+                return self.send_json(200, rows(execute(connection,
+                    "SELECT r.*, u.username, u.email FROM bug_reports r JOIN users u ON u.id=r.user_id ORDER BY r.created_at DESC")))
         parts = parsed.path.strip("/").split("/")
         if len(parts) >= 3 and parts[0] == "api" and parts[1] == "mods":
             mod_id = parts[2]
@@ -325,16 +395,33 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if parsed.path == "/api/auth/register":
                 data = self.read_json()
+                email = str(data.get("email", "")).strip()
                 if len(data["username"].strip()) < 3 or len(data["password"]) < 8:
                     return self.send_json(400, {"error": "Username or password is too short"})
+                if "@" not in email or "." not in email.rsplit("@", 1)[-1]:
+                    return self.send_json(400, {"error": "A valid email address is required"})
+                activation_token = secrets.token_urlsafe(32)
                 with db() as connection:
-                    statement = "INSERT INTO users(username,email,password_hash,created_at) VALUES(?,?,?,?)"
+                    existing = execute(connection, "SELECT 1 FROM users WHERE lower(username)=lower(?) OR lower(email)=lower(?)",
+                                       (data["username"].strip(), email)).fetchone()
+                    if existing:
+                        return self.send_json(409, {"error": "That username or email is already registered"})
+                    owner = data["username"].strip().lower() == OWNER_USERNAME or email.lower() == OWNER_EMAIL
+                    statement = "INSERT INTO users(username,email,password_hash,is_owner,is_active,activation_token,created_at) VALUES(?,?,?,?,?,?,?)"
                     if not isinstance(connection, sqlite3.Connection):
                         statement += " RETURNING id"
                     cursor = execute(connection, statement,
-                                     (data["username"].strip(), data["email"].strip(), password_hash(data["password"]), now()))
+                                     (data["username"].strip(), email, password_hash(data["password"]), int(owner), 0, activation_token, now()))
                     uid = inserted_id(connection, cursor)
-                return self.send_json(201, {"username": data["username"], "email": data["email"]}, self.start_session(uid))
+                    send_email(email, "Activate your BeamMods account",
+                               f"Welcome to BeamMods, {data['username'].strip()}!\n\n"
+                               f"Activate your account here:\n{PUBLIC_URL}/?activation={quote(activation_token)}\n\n"
+                               "If you did not create this account, ignore this email.")
+                    send_email(email, "BeamMods registration received",
+                               f"We received your BeamMods registration for {data['username'].strip()}.\n\n"
+                               "Use the activation email to finish creating your account.")
+                return self.send_json(201, {"username": data["username"], "email": email, "is_owner": owner,
+                                            "message": "Registration received. Check your email to activate the account."})
             if parsed.path == "/api/auth/login":
                 data = self.read_json()
                 with db() as connection:
@@ -342,6 +429,8 @@ class Handler(BaseHTTPRequestHandler):
                                    (data.get("identifier", data.get("email", "")), data.get("identifier", data.get("email", "")))).fetchone()
                 if not user or not verify_password(data["password"], user["password_hash"]):
                     return self.send_json(401, {"error": "Invalid email or password"})
+                if not user["is_active"]:
+                    return self.send_json(403, {"error": "Activate your account using the link sent to your email first."})
                 return self.send_json(200, dict(user), self.start_session(user["id"]))
             if parsed.path == "/api/auth/logout":
                 self.clear_session()
@@ -350,6 +439,14 @@ class Handler(BaseHTTPRequestHandler):
             if not user:
                 return
             parts = parsed.path.strip("/").split("/")
+            if parsed.path == "/api/reports":
+                data = self.read_json()
+                if not str(data.get("modName", "")).strip() or not str(data.get("details", "")).strip():
+                    raise ValueError("Mod name and details are required")
+                with db() as connection:
+                    execute(connection, "INSERT INTO bug_reports(user_id,title,body,created_at) VALUES(?,?,?,?)",
+                            (user["id"], str(data["modName"]).strip(), f"{data.get('type', 'Other')}: {data['details'].strip()}", now()))
+                return self.send_json(201, {"ok": True})
             if parsed.path == "/api/mods":
                 data, upload, preview = self.parse_upload()
                 required = ("name", "category", "author", "description", "version")
@@ -384,6 +481,8 @@ class Handler(BaseHTTPRequestHandler):
                     if found: execute(c, "DELETE FROM favorites WHERE mod_id=? AND user_id=?", (parts[2], user["id"])); state = False
                     else: execute(c, "INSERT INTO favorites(mod_id,user_id) VALUES(?,?)", (parts[2], user["id"])); state = True
                 return self.send_json(200, {"favorite": state})
+        except RuntimeError as error:
+            self.send_json(503, {"error": str(error)})
         except (KeyError, ValueError, sqlite3.IntegrityError, OSError) as error:
             self.send_json(400, {"error": str(error)})
 

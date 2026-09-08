@@ -97,6 +97,7 @@ localStorage.setItem("beammods-mods", JSON.stringify(mods));
 let authMode = "login";
 let currentUser = readStoredUser();
 const ownerUsernames = [localStorage.getItem("beammods-owner-username"), "jerzy", "testuser", "owner", "admin"].filter(Boolean);
+const ownerEmail = "jerzykisielewski84@gmail.com";
 const authModal = document.querySelector("#auth-modal");
 const authForm = document.querySelector("#auth-form");
 const dashboardPage = document.querySelector("#dashboard-page");
@@ -168,6 +169,22 @@ function renderPendingMods() {
     : "<p class='form-note'>No mods are waiting for approval.</p>";
 }
 
+async function renderOwnerReports() {
+  const target = document.querySelector("#owner-reports");
+  if (!target) return;
+  if (!remoteMode) {
+    const reports = JSON.parse(localStorage.getItem("beammods-bug-reports") || "[]");
+    target.innerHTML = reports.length ? reports.map((report) => `<article class="approval-card"><div class="profile-mod-main"><strong>${escapeHtml(report.modName || report.title)}</strong><span>${escapeHtml(report.reporter || "Guest")} · ${escapeHtml(report.type || "Other")}</span><p>${escapeHtml(report.details || report.body)}</p></div></article>`).join("") : "<p class='form-note'>No reports yet.</p>";
+    return;
+  }
+  try {
+    const reports = await apiRequest("/api/reports");
+    target.innerHTML = reports.length ? reports.map((report) => `<article class="approval-card"><div class="profile-mod-main"><strong>${escapeHtml(report.title)}</strong><span>${escapeHtml(report.username)} · ${escapeHtml(report.email)}</span><p>${escapeHtml(report.body)}</p></div></article>`).join("") : "<p class='form-note'>No reports yet.</p>";
+  } catch (error) {
+    target.innerHTML = `<p class="form-note form-error">${escapeHtml(error.message)}</p>`;
+  }
+}
+
 function showLibrary() {
   saveView("library");
   authModal.hidden = true;
@@ -209,6 +226,7 @@ function showOwnerPage() {
   document.querySelectorAll(".dashboard-action").forEach((button) => button.classList.remove("active"));
   document.querySelector("#owner-panel-link").classList.add("active");
   renderPendingMods();
+  renderOwnerReports();
 }
 
 function renderMods() {
@@ -230,6 +248,12 @@ function renderMods() {
     document.querySelector("#dashboard-bug-form").addEventListener("submit", (event) => {
       event.preventDefault();
       const report = Object.fromEntries(new FormData(event.currentTarget));
+      if (remoteMode) {
+        apiRequest("/api/reports", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(report) })
+          .then(() => { event.currentTarget.reset(); askConfirmation("Bug report sent", "The owner can now review this report.", showDashboard); })
+          .catch((error) => { event.currentTarget.querySelector(".form-error").textContent = error.message; });
+        return;
+      }
       const reports = JSON.parse(localStorage.getItem("beammods-bug-reports") || "[]");
       reports.push({ ...report, reporter: currentUser.username, createdAt: new Date().toISOString() });
       localStorage.setItem("beammods-bug-reports", JSON.stringify(reports));
@@ -883,9 +907,11 @@ function resetUploadForm() {
 
 function updateAuthForm() {
   const register = authMode === "register";
+  const emailInput = document.querySelector("[name=email]");
   document.querySelector("#auth-title").innerHTML = register ? "Create your <em>garage.</em>" : "Join the <em>garage.</em>";
   document.querySelector("#auth-submit").innerHTML = `${register ? "Create account" : "Sign in"} <span>↗</span>`;
-  document.querySelector("[name=email]").closest("label").hidden = !register;
+  emailInput.closest("label").hidden = !register;
+  emailInput.required = register;
   document.querySelector("#auth-note").textContent = /^https?:$/i.test(window.location.protocol)
     ? "Email and username accounts are stored securely on the server."
     : "Demo accounts are stored locally in this browser.";
@@ -894,6 +920,7 @@ function updateAuthForm() {
 document.querySelectorAll("[data-auth-tab]").forEach((tab) => {
   tab.addEventListener("click", () => {
     authMode = tab.dataset.authTab;
+    document.querySelector("#auth-error").textContent = "";
     document.querySelectorAll(".auth-tab").forEach((item) => item.classList.toggle("active", item === tab));
     updateAuthForm();
   });
@@ -901,6 +928,7 @@ document.querySelectorAll("[data-auth-tab]").forEach((tab) => {
 
 authForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  document.querySelector("#auth-error").textContent = "";
   const data = new FormData(authForm);
   const users = getUsers();
   const username = String(data.get("username")).trim();
@@ -919,6 +947,11 @@ authForm.addEventListener("submit", async (event) => {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Authentication failed.");
+      if (authMode === "register") {
+        document.querySelector("#auth-error").textContent = result.message || "Check your email to activate your account.";
+        authForm.reset();
+        return;
+      }
       currentUser = {
         username: result.username,
         email: result.email || "",
@@ -931,13 +964,13 @@ authForm.addEventListener("submit", async (event) => {
       updateAccountButton();
       showDashboard();
     } catch (error) {
-      alert(error.message);
+      document.querySelector("#auth-error").textContent = error.message;
     }
     return;
   }
   if (authMode === "register") {
     if (users.some((user) => user.username.toLowerCase() === username.toLowerCase())) {
-      alert("That username is already taken.");
+      document.querySelector("#auth-error").textContent = "That username is already taken.";
       return;
     }
     const user = { username, email: data.get("email"), password, avatar: "", createdAt: new Date().toISOString() };
@@ -951,7 +984,7 @@ authForm.addEventListener("submit", async (event) => {
   } else {
     const user = users.find((item) => item.username.toLowerCase() === username.toLowerCase() && item.password === password);
     if (!user) {
-      alert("Incorrect username or password.");
+      document.querySelector("#auth-error").textContent = "Incorrect username or password.";
       return;
     }
     currentUser = user;
@@ -962,6 +995,24 @@ authForm.addEventListener("submit", async (event) => {
   updateAccountButton();
   showDashboard();
 });
+
+async function activateAccountFromLink() {
+  const token = new URLSearchParams(window.location.search).get("activation");
+  if (!token || !remoteMode) return;
+  try {
+    const response = await fetch(`/api/auth/activate?token=${encodeURIComponent(token)}`);
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Activation failed.");
+    authMode = "login";
+    authModal.hidden = false;
+    updateAuthForm();
+    document.querySelector("#auth-error").textContent = result.message;
+    window.history.replaceState({}, document.title, window.location.pathname);
+  } catch (error) {
+    authModal.hidden = false;
+    document.querySelector("#auth-error").textContent = error.message;
+  }
+}
 
 document.querySelector("[data-close-auth]").addEventListener("click", showLibrary);
 confirmModal.addEventListener("click", (event) => {
@@ -1404,6 +1455,7 @@ Promise.all([syncServerSession(), syncCommunityMods()]).catch((error) => console
 currentUser = readStoredUser();
 updateAccountButton();
 updateAuthForm();
+activateAccountFromLink();
 const savedView = localStorage.getItem("beammods-current-view");
 if (savedView === "dashboard-owner" && currentUser) { showDashboard(); showOwnerPage(); }
 else if (savedView === "dashboard-bug" && currentUser) { showDashboard(); showDashboardBugView(); }

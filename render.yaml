@@ -18,6 +18,18 @@ services:
         fromDatabase:
           name: beammods-db
           property: connectionString
+      - key: PUBLIC_URL
+        value: "https://beammods.onrender.com"
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        sync: false
 
 databases:
   - name: beammods-db
