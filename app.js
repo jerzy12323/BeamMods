@@ -1,7 +1,19 @@
 const defaultMods = [];
 const remoteMode = /^https?:$/i.test(window.location.protocol);
 async function apiRequest(path, options = {}) {
-  const response = await fetch(path, { credentials: "include", ...options });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), options.timeoutMs || 120000);
+  const requestOptions = { credentials: "include", ...options, signal: controller.signal };
+  delete requestOptions.timeoutMs;
+  let response;
+  try {
+    response = await fetch(path, requestOptions);
+  } catch (error) {
+    if (error.name === "AbortError") throw new Error("The upload took too long. Check the file size and try again.");
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
   const type = response.headers.get("content-type") || "";
   const payload = type.includes("application/json") ? await response.json() : await response.blob();
   if (!response.ok) throw new Error(payload?.error || `Request failed (${response.status}).`);
@@ -1204,7 +1216,7 @@ document.querySelector("#google-sign-in").addEventListener("click", () => {
   showDashboard();
 });
 
-form.addEventListener("submit", (event) => {
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const data = new FormData(form);
   const file = data.get("file");
@@ -1235,15 +1247,16 @@ form.addEventListener("submit", (event) => {
   publishButton.innerHTML = "Preparing your upload <span>…</span>";
   document.querySelector("#security-progress").style.width = "0%";
   document.querySelector("#security-message").textContent = "Inspecting file name, type and size...";
-  window.setTimeout(() => { document.querySelector("#security-progress").style.width = "100%"; }, 450);
-  window.setTimeout(() => {
-    finishUpload(data, file, images, source, downloadUrl).catch((error) => {
-      securityModal.hidden = true;
-      document.querySelector("#publish-submit").disabled = false;
-      document.querySelector("#publish-submit").innerHTML = "Publish mod <span>↗</span>";
-      showUploadMessage(error.message || "The mod could not be submitted. Please try again.", "error");
-    });
-  }, 950);
+  await new Promise((resolve) => window.setTimeout(resolve, 450));
+  document.querySelector("#security-progress").style.width = "100%";
+  try {
+    await finishUpload(data, file, images, source, downloadUrl);
+  } catch (error) {
+    securityModal.hidden = true;
+    publishButton.disabled = false;
+    publishButton.innerHTML = "Publish mod <span>↗</span>";
+    showUploadMessage(error.message || "The mod could not be submitted. Please try again.", "error");
+  }
 });
 
 async function finishUpload(data, file, images, source, downloadUrl) {
@@ -1315,7 +1328,10 @@ async function finishUpload(data, file, images, source, downloadUrl) {
       uploadStatus.className = "upload-status success";
       securityModal.hidden = false;
     } catch (error) {
-      showUploadMessage(error.message, "error");
+      securityModal.hidden = true;
+      document.querySelector("#publish-submit").disabled = false;
+      document.querySelector("#publish-submit").innerHTML = "Publish mod <span>↗</span>";
+      showUploadMessage(error.message || "The mod could not be submitted. Please try again.", "error");
     }
     return;
   }
