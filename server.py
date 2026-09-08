@@ -143,22 +143,25 @@ def notify_discord_new_mod(mod):
         return
 
     website_url = f"{PUBLIC_URL}/#mod-{mod['id']}"
+    image_url = f"{PUBLIC_URL}/{mod['image_path']}" if mod.get("image_path") else None
+    embed = {
+        "title": "🆕 New mod submitted",
+        "description": f"**{mod['name']}** is now available on BeamModHub.",
+        "color": 0x5865F2,
+        "fields": [
+            {"name": "Author", "value": str(mod["author"]), "inline": True},
+            {"name": "Category", "value": str(mod["category"]), "inline": True},
+            {"name": "Version", "value": str(mod["version"]), "inline": True},
+        ],
+        "url": website_url,
+        "footer": {"text": "BeamModHub • New mod notification"},
+    }
+    if image_url:
+        embed["image"] = {"url": image_url}
+
     payload = {
         "username": "BeamModHub",
-        "embeds": [
-            {
-                "title": "🆕 New mod submitted",
-                "description": f"**{mod['name']}** is now available on BeamModHub.",
-                "color": 0x5865F2,
-                "fields": [
-                    {"name": "Author", "value": str(mod["author"]), "inline": True},
-                    {"name": "Category", "value": str(mod["category"]), "inline": True},
-                    {"name": "Version", "value": str(mod["version"]), "inline": True},
-                ],
-                "url": website_url,
-                "footer": {"text": "BeamModHub • New mod notification"},
-            }
-        ],
+        "embeds": [embed],
     }
     request = urllib.request.Request(
         DISCORD_WEBHOOK_URL,

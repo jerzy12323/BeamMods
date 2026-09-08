@@ -37,6 +37,7 @@ function renderNotifications() {
   const unread = items.filter((item) => !item.read).length;
   count.textContent = unread > 9 ? "9+" : String(unread);
   count.hidden = !unread;
+  document.querySelector("#notifications-button").classList.toggle("has-unread", unread > 0);
   list.innerHTML = items.length
     ? items.map((item) => `<article class="notification-item${item.read ? "" : " unread"}"><span class="notification-dot"></span><div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.message)}</p><time>${escapeHtml(new Date(item.date).toLocaleString())}</time></div></article>`).join("")
     : '<p class="notifications-empty">You are all caught up. New account and mod updates will appear here.</p>';
