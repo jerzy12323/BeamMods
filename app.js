@@ -202,15 +202,37 @@ async function renderOwnerReports() {
   if (!target) return;
   if (!remoteMode) {
     const reports = JSON.parse(localStorage.getItem("beammods-bug-reports") || "[]");
-    target.innerHTML = reports.length ? reports.map((report) => `<details class="approval-card report-card"><summary><div class="profile-mod-main"><strong>${escapeHtml(report.modName || report.title)}</strong><span>${escapeHtml(report.reporter || "Guest")} · ${escapeHtml(report.type || "Other")} · ${new Date(report.createdAt).toLocaleString()}</span></div><span class="report-chevron">+</span></summary><div class="report-details"><p>${escapeHtml(report.details || report.body)}</p></div></details>`).join("") : "<p class='form-note'>No reports yet.</p>";
+    target.innerHTML = reports.length ? reports.map((report, index) => `<details class="approval-card report-card"><summary><div class="profile-mod-main"><strong>${escapeHtml(report.modName || report.title)}</strong><span>${escapeHtml(report.reporter || "Guest")} · ${escapeHtml(report.type || "Other")} · ${new Date(report.createdAt).toLocaleString()}</span></div><button class="delete-report text-button" type="button" data-report-index="${index}">Delete</button><span class="report-chevron">+</span></summary><div class="report-details"><p>${escapeHtml(report.details || report.body)}</p></div></details>`).join("") : "<p class='form-note'>No reports yet.</p>";
     return;
   }
   try {
     const reports = await apiRequest("/api/reports");
-    target.innerHTML = reports.length ? reports.map((report) => `<details class="approval-card report-card"><summary><div class="profile-mod-main"><strong>${escapeHtml(report.title)}</strong><span>${escapeHtml(report.username)} · ${escapeHtml(report.email)} · ${new Date(report.created_at).toLocaleString()}</span></div><span class="report-chevron">+</span></summary><div class="report-details"><p>${escapeHtml(report.body)}</p></div></details>`).join("") : "<p class='form-note'>No reports yet.</p>";
+    target.innerHTML = reports.length ? reports.map((report) => `<details class="approval-card report-card"><summary><div class="profile-mod-main"><strong>${escapeHtml(report.title)}</strong><span>${escapeHtml(report.username)} · ${escapeHtml(report.email)} · ${new Date(report.created_at).toLocaleString()}</span></div><button class="delete-report text-button" type="button" data-report-id="${report.id}">Delete</button><span class="report-chevron">+</span></summary><div class="report-details"><p>${escapeHtml(report.body)}</p></div></details>`).join("") : "<p class='form-note'>No reports yet.</p>";
   } catch (error) {
     target.innerHTML = `<p class="form-note form-error">${escapeHtml(error.message)}</p>`;
   }
+
+  document.querySelector("#owner-reports").addEventListener("click", (event) => {
+    const button = event.target.closest(".delete-report");
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    askConfirmation("Delete this report?", "This report will be removed from the owner panel.", async () => {
+      try {
+        if (remoteMode && button.dataset.reportId) {
+          await apiRequest(`/api/reports/${button.dataset.reportId}`, { method: "DELETE" });
+        } else {
+          const reports = JSON.parse(localStorage.getItem("beammods-bug-reports") || "[]");
+          reports.splice(Number(button.dataset.reportIndex), 1);
+          localStorage.setItem("beammods-bug-reports", JSON.stringify(reports));
+        }
+        await renderOwnerReports();
+        showActionNotice("Report deleted", "The bug report was removed from the owner panel.");
+      } catch (error) {
+        showActionNotice("Deletion failed", error.message);
+      }
+    });
+  });
 
 }
 

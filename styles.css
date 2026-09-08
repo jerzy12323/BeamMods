@@ -542,6 +542,8 @@ body { background: radial-gradient(circle at 80% -10%, rgba(54, 81, 112, .22), t
 .report-card summary::-webkit-details-marker { display: none; }
 .report-card summary .profile-mod-main { min-width: 0; }
 .report-card summary strong, .report-card summary span { overflow: hidden; text-overflow: ellipsis; }
+.report-card .delete-report { flex: 0 0 auto; margin-left: auto; border: 1px solid rgba(255,103,70,.34); border-radius: 999px; padding: 8px 12px; color: #ffac96; background: rgba(255,103,70,.08); font-family: "Space Grotesk", sans-serif; font-size: 11px; font-weight: 700; text-transform: none; }
+.report-card .delete-report:hover { border-color: var(--orange); color: #fff; background: rgba(255,103,70,.2); }
 .report-chevron { flex: 0 0 auto; color: var(--orange); font-size: 22px; transition: transform .2s ease; }
 .report-card[open] .report-chevron { transform: rotate(45deg); }
 .report-details { margin-top: 18px; border-top: 1px solid rgba(164,188,212,.16); padding-top: 16px; color: #c8d5df; line-height: 1.65; white-space: pre-wrap; }

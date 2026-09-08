@@ -17,6 +17,7 @@ import sqlite3
 import time
 import uuid
 import zipfile
+from decimal import Decimal
 from email.message import EmailMessage
 from email import policy
 from email.parser import BytesParser
@@ -238,7 +239,13 @@ def verify_password(password, stored):
 
 
 def json_bytes(value):
-    return json.dumps(value, ensure_ascii=False).encode("utf-8")
+    return json.dumps(value, ensure_ascii=False, default=json_value).encode("utf-8")
+
+
+def json_value(value):
+    if isinstance(value, Decimal):
+        return float(value)
+    raise TypeError(f"{type(value).__name__} is not JSON serializable")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -559,7 +566,20 @@ class Handler(BaseHTTPRequestHandler):
         try:
             parts = self.path.strip("/").split("/")
             user = self.require_user()
-            if not user or len(parts) != 3 or parts[:2] != ["api", "mods"]:
+            if not user:
+                return
+            if len(parts) == 3 and parts[:2] == ["api", "reports"]:
+                if not is_owner_user(user):
+                    return self.send_json(403, {"error": "Owner access required"})
+                with db() as c:
+                    deleted = execute(c, "DELETE FROM bug_reports WHERE id=?", (parts[2],))
+                    if deleted.rowcount == 0:
+                        return self.send_json(404, {"error": "Report not found"})
+                self.send_response(204)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            if len(parts) != 3 or parts[:2] != ["api", "mods"]:
                 return
             with db() as c:
                 owner = execute(c, "SELECT owner_id FROM mods WHERE id=?", (parts[2],)).fetchone()
