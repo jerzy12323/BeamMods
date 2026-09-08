@@ -592,6 +592,11 @@ body { background: radial-gradient(circle at 80% -10%, rgba(54, 81, 112, .22), t
 .details-modal h2 { margin-bottom: 10px; color: #f1f5f6; font-size: clamp(38px, 5vw, 58px); line-height: .98; }
 .details-byline { margin: 0 0 24px; color: var(--orange); font-family: "DM Mono", monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 .details-description { margin: 0 0 24px; color: #b7c5cf; font-size: 16px; line-height: 1.7; }
+.details-description p { margin: 0 0 12px; }
+.details-description p:last-child { margin-bottom: 0; }
+.description-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.description-list li { position: relative; padding-left: 28px; }
+.description-list li::before { position: absolute; top: .1em; left: 0; color: #8ee6a4; content: "✓"; font-weight: 700; }
 .details-extra { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0 0 20px; }
 .details-extra { grid-template-columns: repeat(4, 1fr); }
 .details-extra div { border: 1px solid rgba(168,185,198,.16); border-radius: 10px; padding: 12px; background: rgba(255,255,255,.035); }

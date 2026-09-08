@@ -521,6 +521,33 @@ function escapeHtml(value) {
   }[character]));
 }
 
+function formatModDescription(description) {
+  const lines = String(description || "").replace(/\r\n?/g, "\n").split("\n");
+  const output = [];
+  let bullets = [];
+  const flushBullets = () => {
+    if (!bullets.length) return;
+    output.push(`<ul class="description-list">${bullets.map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join("")}</ul>`);
+    bullets = [];
+  };
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushBullets();
+      return;
+    }
+    const bullet = trimmed.match(/^(?:✅|☑️|☑|✓)\s*(.*)$/u);
+    if (bullet) {
+      bullets.push(bullet[1]);
+      return;
+    }
+    flushBullets();
+    output.push(`<p>${escapeHtml(trimmed)}</p>`);
+  });
+  flushBullets();
+  return output.join("") || "<p>No description was provided for this mod.</p>";
+}
+
 function mediaUrl(path) {
   const value = String(path || "").trim();
   if (!value) return "";
@@ -658,7 +685,7 @@ function openDetails(mod) {
   document.querySelector("#details-category").textContent = formatDisplayName(mod.category);
   document.querySelector("#details-title").textContent = formatDisplayName(mod.name);
   document.querySelector("#details-author").textContent = `Created by ${formatDisplayName(mod.author)}`;
-  document.querySelector("#details-description").textContent = mod.description || "No description was provided for this mod.";
+  document.querySelector("#details-description").innerHTML = formatModDescription(mod.description);
   document.querySelector("#details-extra").innerHTML = `
     <div><span>File type</span><strong>BeamNG.drive ZIP</strong></div>
     <div><span>BeamNG version</span><strong>${escapeHtml(mod.gameVersion || "0.39")}</strong></div>
