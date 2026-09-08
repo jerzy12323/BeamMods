@@ -568,7 +568,7 @@ body { background: radial-gradient(circle at 80% -10%, rgba(54, 81, 112, .22), t
 .mod-cover::before { position: absolute; z-index: 1; inset: 0; border: 1px solid rgba(255,255,255,.18); content: ""; pointer-events: none; }
 .card-open { position: absolute; z-index: 2; right: 13px; bottom: 13px; padding: 6px 8px; color: var(--paper); background: rgba(16,18,18,.72); font-family: "DM Mono", monospace; font-size: 9px; opacity: 0; transform: translateY(5px); transition: opacity .2s ease, transform .2s ease; }
 .mod-card:hover .card-open, .mod-card:focus-visible .card-open { opacity: 1; transform: translateY(0); }
-.details-modal { position: relative; z-index: 21; width: min(100%, 680px); max-height: 92vh; overflow-y: auto; pointer-events: auto; }
+.details-modal { position: relative; z-index: 21; box-sizing: border-box; width: min(100%, 680px); max-width: 100%; max-height: 92vh; overflow-x: hidden; overflow-y: auto; pointer-events: auto; }
 .details-modal::-webkit-scrollbar { display: none; }
 .details-cover { position: relative; height: 300px; margin: -44px -44px 30px; overflow: hidden; background: #0b1727; }
 .details-cover::after { position: absolute; inset: 0; background: linear-gradient(20deg, rgba(0,0,0,.5), transparent); content: ""; }
@@ -595,6 +595,8 @@ body { background: radial-gradient(circle at 80% -10%, rgba(54, 81, 112, .22), t
 .details-stats .like-button { border: 1px solid rgba(255,179,93,.28); border-radius: 999px; padding: 8px 10px; color: #ffb35d; background: rgba(255,179,93,.08); cursor: pointer; font: inherit; }
 .details-stats .like-button:disabled { cursor: default; opacity: .78; }
 .details-stats .like-button.liked { border-color: rgba(255,103,70,.35); color: var(--orange); background: rgba(255,103,70,.1); }
+.details-stats .delete-detail-button { border: 1px solid rgba(255,103,70,.35); border-radius: 999px; padding: 8px 10px; color: #ff9277; background: rgba(255,103,70,.08); cursor: pointer; font: inherit; }
+.details-stats .delete-detail-button:hover { border-color: var(--orange); color: #fff; background: rgba(255,103,70,.18); }
 .fixed-field strong { display: flex; align-items: center; min-height: 46px; border: 1px solid rgba(164,188,212,.26); border-radius: 8px; padding: 0 13px; color: #eef4f6; background: #101d2e; font-size: 14px; }
 .avatar { background: linear-gradient(135deg, #ff6746, #ffb35d); background-position: center; background-size: cover; }
 .avatar.has-image { color: transparent; }

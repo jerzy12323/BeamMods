@@ -162,6 +162,9 @@ def init_db():
             CREATE TABLE IF NOT EXISTS favorites (
               mod_id INTEGER NOT NULL REFERENCES mods(id) ON DELETE CASCADE, user_id INTEGER NOT NULL REFERENCES users(id),
               PRIMARY KEY(mod_id,user_id));
+            CREATE TABLE IF NOT EXISTS mod_downloads (
+              mod_id INTEGER NOT NULL REFERENCES mods(id) ON DELETE CASCADE, user_id INTEGER NOT NULL REFERENCES users(id),
+              created_at TEXT NOT NULL, PRIMARY KEY(mod_id,user_id));
             CREATE TABLE IF NOT EXISTS bug_reports (
               id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES users(id), mod_id INTEGER REFERENCES mods(id),
               title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL);
@@ -185,6 +188,8 @@ def init_db():
               rating INTEGER NOT NULL, PRIMARY KEY(mod_id,user_id));
             CREATE TABLE IF NOT EXISTS favorites (mod_id INTEGER REFERENCES mods(id) ON DELETE CASCADE, user_id INTEGER REFERENCES users(id),
               PRIMARY KEY(mod_id,user_id));
+            CREATE TABLE IF NOT EXISTS mod_downloads (mod_id INTEGER REFERENCES mods(id) ON DELETE CASCADE, user_id INTEGER REFERENCES users(id),
+              created_at TEXT NOT NULL, PRIMARY KEY(mod_id,user_id));
             CREATE TABLE IF NOT EXISTS bug_reports (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id),
               mod_id INTEGER REFERENCES mods(id), title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS sessions (
@@ -425,6 +430,9 @@ class Handler(BaseHTTPRequestHandler):
                         result = rows(execute(connection, "SELECT rating,COUNT(*) AS count FROM ratings WHERE mod_id=? GROUP BY rating ORDER BY rating", (mod_id,)))
                     else:
                         result = rows(execute(connection, "SELECT COUNT(*) AS count FROM favorites WHERE mod_id=?", (mod_id,)))
+                        user = self.user()
+                        result = {"count": result[0]["count"] if result else 0,
+                                  "liked": bool(user and execute(connection, "SELECT 1 FROM favorites WHERE mod_id=? AND user_id=?", (mod_id,)).fetchone())}
                 return self.send_json(200, result)
             item = self.mod(mod_id)
             if item:
@@ -754,9 +762,20 @@ class Handler(BaseHTTPRequestHandler):
             if len(parts) >= 4 and parts[1] == "mods" and parts[3] in ("favorite", "favorites"):
                 with db() as c:
                     found = execute(c, "SELECT 1 FROM favorites WHERE mod_id=? AND user_id=?", (parts[2], user["id"])).fetchone()
-                    if found: execute(c, "DELETE FROM favorites WHERE mod_id=? AND user_id=?", (parts[2], user["id"])); state = False
-                    else: execute(c, "INSERT INTO favorites(mod_id,user_id) VALUES(?,?)", (parts[2], user["id"])); state = True
-                return self.send_json(200, {"favorite": state})
+                    if found:
+                        state = True
+                    else:
+                        execute(c, "INSERT INTO favorites(mod_id,user_id) VALUES(?,?)", (parts[2], user["id"])); state = True
+                    count = execute(c, "SELECT COUNT(*) AS count FROM favorites WHERE mod_id=?", (parts[2],)).fetchone()
+                return self.send_json(200, {"favorite": state, "count": count["count"] if isinstance(count, dict) else count[0]})
+            if len(parts) >= 4 and parts[1] == "mods" and parts[3] == "download":
+                with db() as c:
+                    inserted = execute(c, "INSERT INTO mod_downloads(mod_id,user_id,created_at) VALUES(?,?,?) ON CONFLICT(mod_id,user_id) DO NOTHING",
+                                        (parts[2], user["id"], now()))
+                    if inserted.rowcount:
+                        execute(c, "UPDATE mods SET download_count=download_count+1 WHERE id=?", (parts[2],))
+                    count = execute(c, "SELECT download_count FROM mods WHERE id=?", (parts[2],)).fetchone()
+                return self.send_json(200, {"count": (count["download_count"] if isinstance(count, dict) else count[0]) if count else 0})
         except RuntimeError as error:
             self.send_json(503, {"error": str(error)})
         except (KeyError, ValueError, sqlite3.IntegrityError, OSError) as error:
@@ -839,12 +858,18 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(400, {"error": str(error)})
 
     def download(self, mod_id):
+        user = self.require_user()
+        if not user:
+            return
         with db() as c:
             version = execute(c, "SELECT v.zip_path, v.original_filename, m.name AS mod_name "
                                 "FROM mod_versions v JOIN mods m ON m.id=v.mod_id "
                                 "WHERE v.mod_id=? ORDER BY v.id DESC", (mod_id,)).fetchone()
             if not version: return self.send_json(404, {"error": "Download not found"})
-            execute(c, "UPDATE mods SET download_count=download_count+1 WHERE id=?", (mod_id,))
+            inserted = execute(c, "INSERT INTO mod_downloads(mod_id,user_id,created_at) VALUES(?,?,?) ON CONFLICT(mod_id,user_id) DO NOTHING",
+                               (mod_id, user["id"], now()))
+            if inserted.rowcount:
+                execute(c, "UPDATE mods SET download_count=download_count+1 WHERE id=?", (mod_id,))
         zip_path = version["zip_path"] if isinstance(version, dict) else version[0]
         original_filename = version["original_filename"] if isinstance(version, dict) else version[1]
         mod_name = version["mod_name"] if isinstance(version, dict) else version[2]

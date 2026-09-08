@@ -118,8 +118,8 @@ let mods = JSON.parse(localStorage.getItem("beammods-mods") || "[]")
 localStorage.setItem("beammods-mods", JSON.stringify(mods));
 let authMode = "login";
 let currentUser = readStoredUser();
-const ownerUsernames = [localStorage.getItem("beammods-owner-username"), "jerzy", "beamowner", "testuser", "owner", "admin"].filter(Boolean);
-const ownerEmails = ["beammodshub@gmail.com"];
+const ownerUsernames = [localStorage.getItem("beammods-owner-username"), "jerzy", "beamowner", "testuser", "owner", "admin"].filter(Boolean).map((value) => value.toLowerCase());
+const ownerEmails = ["beammodshub@gmail.com"].map((value) => value.toLowerCase());
 const authModal = document.querySelector("#auth-modal");
 const authForm = document.querySelector("#auth-form");
 const passwordResetModal = document.querySelector("#password-reset-modal");
@@ -215,6 +215,7 @@ function mapRemoteMod(mod) {
     size: "Community upload",
     rating: mod.rating || "",
     downloads: mod.download_count || 0,
+    likeCount: mod.favorite_count || 0,
     age: 0,
     cover: "cover-drift",
     icon: "NEW",
@@ -648,14 +649,21 @@ function openDetails(mod) {
   const detailsStats = document.querySelector("#details-stats");
   const likeStore = getLikeStore();
   const likeEntry = likeStore[mod.name] || { count: 0, users: [] };
-  const likes = typeof likeEntry === "number" ? likeEntry : likeEntry.count;
+  const likes = mod.likeCount || (typeof likeEntry === "number" ? likeEntry : likeEntry.count);
   const hasLiked = typeof likeEntry === "number" ? false : (Array.isArray(likeEntry.users) && likeEntry.users.includes(getLikeIdentity()));
   detailsStats.innerHTML = `<span>${mod.rating ? `★ ${escapeHtml(mod.rating)}` : "★ No rating yet"}</span><span>↓ ${escapeHtml(mod.downloads || 0)} downloads</span><button type="button" class="like-button${hasLiked ? " liked" : ""}" id="details-like" ${hasLiked ? "disabled" : ""}>${hasLiked ? "♥ Liked" : "♡ Like"} · ${likes}</button>`;
+  if (currentUser && isOwnerAccount()) {
+    detailsStats.insertAdjacentHTML("beforeend", `<button type="button" class="delete-detail-button" id="details-delete">Delete mod</button>`);
+  }
   detailsStats.hidden = false;
   document.querySelector("#details-like").onclick = () => {
     if (remoteMode && mod.id) {
+      document.querySelector("#details-like").disabled = true;
       apiRequest(`/api/mods/${mod.id}/favorite`, { method: "POST" })
-        .then(() => openDetails(mod))
+        .then((result) => {
+          mod.likeCount = result.count;
+          openDetails(mod);
+        })
         .catch((error) => alert(error.message));
       return;
     }
@@ -670,6 +678,17 @@ function openDetails(mod) {
     localStorage.setItem("beammods-likes", JSON.stringify(store));
     openDetails(mod);
   };
+  if (remoteMode && mod.id) {
+    apiRequest(`/api/mods/${mod.id}/favorites`)
+      .then((favorite) => {
+        const likeButton = document.querySelector("#details-like");
+        if (!likeButton || !favorite?.liked) return;
+        likeButton.classList.add("liked");
+        likeButton.disabled = true;
+        likeButton.textContent = `♥ Liked · ${favorite.count}`;
+      })
+      .catch(() => {});
+  }
   document.querySelector(".details-tech")?.remove();
   detailsStats.insertAdjacentHTML("beforebegin", `<div class="details-tech"><span>${escapeHtml(mod.size || "Size N/A")}</span><span>v${escapeHtml(mod.version || "N/A")}</span><span>${escapeHtml(mod.configs ?? "-")} configs</span></div>`);
   const ratings = getRatingStore()[mod.name] || [];
@@ -699,6 +718,9 @@ function openDetails(mod) {
       const total = remoteRatings.reduce((sum, item) => sum + Number(item.rating) * Number(item.count), 0);
       const count = remoteRatings.reduce((sum, item) => sum + Number(item.count), 0);
       const remoteAverage = count ? (total / count).toFixed(1) : "";
+      mod.rating = remoteAverage;
+      const ratingStat = detailsStats.querySelector("span");
+      if (ratingStat) ratingStat.textContent = remoteAverage ? `★ ${remoteAverage}` : "★ No rating yet";
       document.querySelector("#details-rating-summary").textContent = remoteAverage
         ? `${remoteAverage} / 5 from ${count} ${count === 1 ? "rating" : "ratings"}`
         : "Be the first to rate this mod";
@@ -756,6 +778,15 @@ function openDetails(mod) {
   downloadButton.innerHTML = `${mod.fileId ? "Download ZIP file" : "Open ModsFire download"} <span>${mod.fileId ? "↓" : "↗"}</span>`;
   downloadButton.onclick = async () => {
     if (remoteMode && mod.downloadUrl) {
+      try {
+        const result = await apiRequest(`/api/mods/${mod.id}/download`, { method: "POST" });
+        mod.downloads = result.count;
+        const downloadStat = Array.from(detailsStats.querySelectorAll("span")).find((item) => item.textContent.includes("downloads"));
+        if (downloadStat) downloadStat.textContent = `↓ ${result.count} downloads`;
+      } catch (error) {
+        alert(error.message);
+        return;
+      }
       window.open(getExternalDownloadUrl(mod.downloadUrl), "_blank", "noopener,noreferrer");
       return;
     }
@@ -810,6 +841,21 @@ function openDetails(mod) {
       alert("This uploaded ZIP is no longer available after refreshing the demo. Please upload it again or add a download link.");
     }
   };
+  const deleteButton = document.querySelector("#details-delete");
+  if (deleteButton) {
+    deleteButton.onclick = () => askConfirmation("Delete this mod?", "This will permanently remove the mod from the public library.", async () => {
+      try {
+        await apiRequest(`/api/mods/${mod.id}`, { method: "DELETE" });
+        mods = mods.filter((item) => String(item.id) !== String(mod.id));
+        localStorage.setItem("beammods-mods", JSON.stringify(mods.filter((item) => !defaultMods.includes(item))));
+        detailsModal.hidden = true;
+        renderMods();
+        showActionNotice("Mod deleted", `"${mod.name}" was removed from the library.`);
+      } catch (error) {
+        showActionNotice("Deletion failed", error.message);
+      }
+    });
+  }
   document.querySelector("#details-modal").hidden = false;
 }
 
