@@ -144,11 +144,15 @@ def init_db():
             for statement in schema.split(";"):
                 if statement.strip():
                     execute(connection, statement)
-        try:
-            execute(connection, "ALTER TABLE mod_versions ADD COLUMN original_filename TEXT")
-        except Exception as error:
-            if "duplicate column" not in str(error).lower() and "already exists" not in str(error).lower():
-                raise
+        if isinstance(connection, sqlite3.Connection):
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(mod_versions)")}
+            if "original_filename" not in columns:
+                connection.execute("ALTER TABLE mod_versions ADD COLUMN original_filename TEXT")
+        else:
+            column = execute(connection, "SELECT 1 FROM information_schema.columns "
+                              "WHERE table_name='mod_versions' AND column_name='original_filename'").fetchone()
+            if not column:
+                execute(connection, "ALTER TABLE mod_versions ADD COLUMN original_filename TEXT")
         if not isinstance(connection, sqlite3.Connection):
             connection.commit()
 
