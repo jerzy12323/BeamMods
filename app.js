@@ -118,7 +118,7 @@ let mods = JSON.parse(localStorage.getItem("beammods-mods") || "[]")
 localStorage.setItem("beammods-mods", JSON.stringify(mods));
 let authMode = "login";
 let currentUser = readStoredUser();
-const ownerUsernames = [localStorage.getItem("beammods-owner-username"), "jerzy", "testuser", "owner", "admin"].filter(Boolean);
+const ownerUsernames = [localStorage.getItem("beammods-owner-username"), "jerzy", "beamowner", "testuser", "owner", "admin"].filter(Boolean);
 const ownerEmails = ["beammodshub@gmail.com"];
 const authModal = document.querySelector("#auth-modal");
 const authForm = document.querySelector("#auth-form");
@@ -222,8 +222,8 @@ function mapRemoteMod(mod) {
     owner: mod.username || mod.author,
     publishedAt: mod.created_at,
     updatedAt: mod.created_at,
-    image: mod.image_path ? `/uploads/${mod.image_path.split("/").pop()}` : "",
-    images: mod.image_path ? [`/uploads/${mod.image_path.split("/").pop()}`] : [],
+    image: mediaUrl(mod.image_path),
+    images: mod.image_path ? [mediaUrl(mod.image_path)] : [],
     downloadUrl: mod.download_url || "",
     fileId: "",
     fileName: mod.original_filename || ""
@@ -243,7 +243,7 @@ async function syncUserMods() {
   });
   mods = mods.filter((mod) => !mod.id || remoteById.has(String(mod.id)) || mod.owner !== currentUser.username);
   renderMods();
-  showDashboard(false);
+  if (!dashboardPage.hidden) showDashboard(false);
 }
 
 document.querySelector("#profile-name-form").addEventListener("submit", async (event) => {
@@ -322,8 +322,8 @@ async function syncPendingMods() {
       owner: mod.username || mod.author,
       publishedAt: mod.created_at,
       updatedAt: mod.created_at,
-      image: mod.image_path ? `/uploads/${mod.image_path.split("/").pop()}` : "",
-      images: mod.image_path ? [`/uploads/${mod.image_path.split("/").pop()}`] : [],
+      image: mediaUrl(mod.image_path),
+      images: mod.image_path ? [mediaUrl(mod.image_path)] : [],
       downloadUrl: mod.download_url || "",
       fileId: "",
       fileName: mod.original_filename || ""
@@ -499,6 +499,13 @@ function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   }[character]));
+}
+
+function mediaUrl(path) {
+  const value = String(path || "").trim();
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value) || value.startsWith("data:")) return value;
+  return `/uploads/${value.replace(/^\/?uploads\//i, "").split("/").pop()}`;
 }
 
 function formatDisplayName(value) {
@@ -1454,8 +1461,14 @@ document.querySelector("#pending-mods").addEventListener("click", (event) => {
     askConfirmation("Accept this mod?", "Have you checked the preview, description and download source? Accepting makes this mod public.", async () => {
       if (remoteMode && mod.id) {
         try {
-          await apiRequest(`/api/mods/${mod.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ approved: 1 }) });
+          const approvedRemoteMod = await apiRequest(`/api/mods/${mod.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ approved: 1 })
+          });
+          Object.assign(mod, mapRemoteMod(approvedRemoteMod), { approved: true });
           await syncCommunityMods();
+          await syncPendingMods();
         } catch (error) {
           showActionNotice("Approval failed", error.message);
           return;
@@ -1649,8 +1662,8 @@ async function finishUpload(data, file, images, source, downloadUrl) {
         owner: remoteMod.username || remoteMod.author,
         publishedAt: remoteMod.created_at,
         updatedAt: remoteMod.created_at,
-        image: remoteMod.image_path ? `/uploads/${remoteMod.image_path.split("/").pop()}` : "",
-        images: remoteMod.image_path ? [`/uploads/${remoteMod.image_path.split("/").pop()}`] : [],
+        image: mediaUrl(remoteMod.image_path),
+        images: remoteMod.image_path ? [mediaUrl(remoteMod.image_path)] : [],
         downloadUrl: remoteMod.download_url || "",
         fileId: "",
         fileName: remoteMod.original_filename || ""
@@ -1749,8 +1762,8 @@ async function syncCommunityMods() {
     const remoteMod = remoteByName.get(String(localMod.name).toLowerCase());
     if (remoteMod) {
       Object.assign(localMod, mapRemoteMod(remoteMod), {
-        image: remoteMod.image_path ? `/uploads/${remoteMod.image_path.split("/").pop()}` : localMod.image,
-        images: remoteMod.image_path ? [`/uploads/${remoteMod.image_path.split("/").pop()}`] : localMod.images
+        image: mediaUrl(remoteMod.image_path) || localMod.image,
+        images: remoteMod.image_path ? [mediaUrl(remoteMod.image_path)] : localMod.images
       });
     }
   });
@@ -1776,8 +1789,8 @@ async function syncCommunityMods() {
       owner: mod.username || mod.author,
       publishedAt: mod.created_at,
       updatedAt: mod.created_at,
-      image: mod.image_path ? `/uploads/${mod.image_path.split("/").pop()}` : "",
-      images: mod.image_path ? [`/uploads/${mod.image_path.split("/").pop()}`] : [],
+      image: mediaUrl(mod.image_path),
+      images: mod.image_path ? [mediaUrl(mod.image_path)] : [],
       downloadUrl: mod.download_url || "",
       fileId: "",
       fileName: mod.original_filename || ""

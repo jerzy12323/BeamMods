@@ -105,13 +105,14 @@ def inserted_id(connection, cursor):
 
 OWNER_EMAIL = "beammodshub@gmail.com"
 OWNER_USERNAME = "jerzy"
+OWNER_USERNAMES = {"jerzy", "beamowner"}
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "https://beammods.onrender.com").rstrip("/")
 GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", f"{PUBLIC_URL}/api/auth/google/callback")
 
 
 def is_owner_user(user):
     return bool(user and (user.get("is_owner") or
-                          user.get("username", "").lower() == OWNER_USERNAME or
+                          user.get("username", "").lower() in OWNER_USERNAMES or
                           user.get("email", "").lower() == OWNER_EMAIL))
 
 
@@ -790,7 +791,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not owner:
                     return self.send_json(404, {"error": "Mod not found"})
                 owner_id = owner["owner_id"] if isinstance(owner, dict) else owner[0]
-                if owner_id != user["id"] and not user["is_owner"]:
+                if owner_id != user["id"] and not is_owner_user(user):
                     return self.send_json(403, {"error": "Owner access required"})
                 allowed = ("name", "category", "author", "description", "version", "configs", "approved")
                 values = [(k, data[k]) for k in allowed if k in data]
@@ -828,7 +829,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not owner:
                     return self.send_json(404, {"error": "Mod not found"})
                 owner_id = owner["owner_id"] if isinstance(owner, dict) else owner[0]
-                if owner_id != user["id"] and not user["is_owner"]:
+                if owner_id != user["id"] and not is_owner_user(user):
                     return self.send_json(403, {"error": "Owner access required"})
                 execute(c, "DELETE FROM mods WHERE id=?", (parts[2],))
             self.send_response(204)
@@ -875,7 +876,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def serve_static(self, path):
         if path.startswith("/uploads/"):
-            requested = (DATA / path.removeprefix("/uploads/")).resolve()
+            requested = (DATA / path.lstrip("/")).resolve()
             if DATA not in requested.parents:
                 return self.send_error(403)
         else:
