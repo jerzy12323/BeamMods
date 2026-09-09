@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260909-16">
+  <link rel="stylesheet" href="styles.css?v=20260909-18">
 </head>
 <body>
   <div class="noise"></div>
@@ -132,7 +132,13 @@
     </section>
     <section class="standalone-page" id="dmca-page" hidden>
       <div class="standalone-top"><div><p class="eyebrow">Legal information</p><h1>DMCA <em>notice.</em></h1></div><button class="back-button" id="back-from-dmca">← Back to library</button></div>
-      <div class="standalone-content legal-copy"><p>BeamMods respects copyright and intellectual property rights. If you own content published on this demo site and believe it is being used without permission, send a notice with the work identification, direct mod URL, contact details and a statement of good-faith belief.</p><p class="form-note">This static demo does not process legal notices automatically. A production site should route DMCA requests to the site owner or designated agent.</p></div>
+      <div class="standalone-content legal-copy">
+        <p>BeamMods respects copyright and intellectual property rights. If you believe a mod, image, description or other material on the platform infringes your copyright, you can send a formal DMCA notice for review.</p>
+        <h2>What to include</h2>
+        <p>Provide your full name, contact details, identification of the copyrighted work, the direct BeamMods URL of the reported material, a statement that you have a good-faith belief the use is unauthorized, and a statement that the information is accurate under penalty of perjury.</p>
+        <p>Send notices to <a href="mailto:beammodshub@gmail.com">beammodshub@gmail.com</a> with the subject line <strong>DMCA takedown request</strong>. We may contact the uploader for clarification and will review complete notices as promptly as possible.</p>
+        <p class="form-note">Please do not submit false or incomplete claims. If you are the uploader and believe content was removed in error, include the original mod URL and an explanation when contacting us about a counter-notice.</p>
+      </div>
     </section>
     <section class="standalone-page how-page" id="how-page" hidden>
       <div class="standalone-top"><div><p class="eyebrow">The BeamMods process</p><h1>How it <em>works.</em></h1></div><button class="back-button" id="back-from-how">← Back to library</button></div>
@@ -282,7 +288,7 @@
       <h2 id="security-title">Checking your <em>file.</em></h2>
       <div class="security-status"><span class="security-dot"></span><span id="security-message">Inspecting file name, type and size...</span></div>
       <div class="security-bar"><span id="security-progress"></span></div>
-      <p class="form-note">This browser demo checks extension and size only. Production uploads should be scanned server-side with ClamAV or a malware scanning API.</p>
+      <p class="form-note">BeamMods checks the file type and size before upload. Uploaded archives are also validated by the server.</p>
       <button class="submit-button security-close" id="security-close" type="button" hidden>Continue to BeamMods <span>↗</span></button>
     </section>
   </div>
@@ -361,7 +367,7 @@
         <p class="auth-message" id="auth-error" aria-live="polite"></p>
       </form>
       <button class="forgot-password-link" id="forgot-password-link" type="button">Forgot your password?</button>
-      <p class="form-note" id="auth-note">Demo accounts are stored locally in this browser.</p>
+      <p class="form-note" id="auth-note">Your account details are handled securely and are never shown publicly.</p>
     </section>
   </div>
   <div class="modal-backdrop" id="password-reset-modal" hidden>
@@ -411,7 +417,7 @@
         <label>Details<textarea name="details" required placeholder="Describe what is not working..."></textarea></label>
         <button class="submit-button" type="submit">Send bug report <span>↗</span></button>
       </form>
-      <p class="form-note">Reports are saved to your account in this browser demo and can be reviewed by the owner.</p>
+      <p class="form-note">Reports are linked to your BeamMods account and can be reviewed by the owner.</p>
     </section>
   </div>
   <div class="modal-backdrop" id="dmca-modal" hidden>
@@ -419,10 +425,10 @@
       <button class="modal-close" data-close-dmca aria-label="Close">×</button>
       <p class="eyebrow">Legal information</p>
       <h2 id="dmca-title">DMCA <em>notice.</em></h2>
-      <p>BeamMods respects copyright and intellectual property rights. If you own content published on this demo site and believe it is being used without permission, send a notice with the work identification, the direct mod URL, your contact details and a statement of good-faith belief.</p>
-      <p class="form-note">This static demo does not process legal notices automatically. A production site should route DMCA requests to the site owner or designated agent.</p>
+      <p>BeamMods respects copyright and intellectual property rights. If you believe a mod, image, description or other material on the platform infringes your copyright, you can send a formal DMCA notice for review. Include your contact details, the copyrighted work, the direct BeamMods URL, and a good-faith statement that the use is unauthorized.</p>
+      <p class="form-note">Send complete notices to <a href="mailto:beammodshub@gmail.com">beammodshub@gmail.com</a> with the subject line “DMCA takedown request”. False or incomplete claims may delay review.</p>
     </section>
   </div>
-  <script src="app.js?v=20260909-8"></script>
+  <script src="app.js?v=20260909-9"></script>
 </body>
 </html>

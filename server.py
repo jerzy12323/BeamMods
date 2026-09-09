@@ -426,6 +426,7 @@ class Handler(BaseHTTPRequestHandler):
                 email = user["email"] if isinstance(user, dict) else user[1]
                 username = user["username"] if isinstance(user, dict) else user[2]
                 execute(connection, "UPDATE users SET is_active=1, activation_token=NULL WHERE id=?", (user_id,))
+                connection.commit()
             try:
                 send_email(email, "BeamMods account activated", f"Hi {username},\n\nYour BeamMods account is now active. You can sign in at {PUBLIC_URL}/")
             except RuntimeError:
@@ -695,6 +696,7 @@ class Handler(BaseHTTPRequestHandler):
                     cursor = execute(connection, statement,
                                      (username, email, password_hash(password), int(owner), 0, activation_token, now()))
                     uid = inserted_id(connection, cursor)
+                    connection.commit()
                     activation_url = f"{PUBLIC_URL}/?activation={quote(activation_token)}"
                     username_display = username
                     username_html = escape(username_display)

@@ -1035,7 +1035,7 @@ function openDetails(mod) {
     } else if (mod.downloadUrl) {
       window.open(getExternalDownloadUrl(mod.downloadUrl), "_blank", "noopener");
     } else {
-      showActionNotice("Download unavailable", "This uploaded ZIP is no longer available after refreshing the demo. Please upload it again or add an external download link.");
+      showActionNotice("Download unavailable", "This uploaded ZIP is no longer available after refreshing this browser. Please upload it again or add an external download link.");
     }
   };
   const deleteButton = document.querySelector("#details-delete");
@@ -1393,7 +1393,7 @@ function updateAuthForm() {
   emailInput.required = register;
   document.querySelector("#auth-note").textContent = /^https?:$/i.test(window.location.protocol)
     ? "Email and username accounts are stored securely on the server."
-    : "Demo accounts are stored locally in this browser.";
+    : "Local preview mode: account data stays in this browser.";
 }
 
 function openPasswordReset(token = "") {
@@ -1440,7 +1440,7 @@ document.querySelector("#forgot-password-link").addEventListener("click", () => 
       } else {
         const user = getUsers().find((item) => String(item.email).toLowerCase() === email.toLowerCase());
         if (!user) throw new Error("No BeamMods account was found with that email.");
-        message.textContent = "This demo account can be changed locally. Enter a new password below.";
+        message.textContent = "Enter a new password below to update your local account.";
         message.className = "auth-message success";
         openPasswordReset(`local:${email}`);
       }
@@ -1587,11 +1587,14 @@ async function activateAccountFromLink() {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Activation failed.");
     activationResultModal.hidden = false;
+    document.querySelector("#activation-result-title").innerHTML = "Account <em>activated.</em>";
+    document.querySelector(".activation-check").textContent = "✓";
     document.querySelector("#activation-result-message").textContent =
       "Your email address has been confirmed. Your account is now active — you can sign in securely.";
     window.history.replaceState({}, document.title, window.location.pathname);
   } catch (error) {
     activationResultModal.hidden = false;
+    document.querySelector(".activation-check").textContent = "!";
     document.querySelector("#activation-result-title").innerHTML = "Activation <em>failed.</em>";
     document.querySelector("#activation-result-message").textContent = error.message;
   }
