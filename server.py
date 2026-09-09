@@ -431,7 +431,11 @@ class Handler(BaseHTTPRequestHandler):
             except RuntimeError:
                 pass
             return self.send_json(200, {"ok": True, "message": "Your account is active. You can now sign in."})
-        if parsed.path == "/api/mods/pending":
+        if parsed.path == "/api/mods/pending" or (
+            len(parsed.path.strip("/").split("/")) >= 4 and
+            parsed.path.strip("/").split("/")[1] == "mods" and
+            parsed.path.strip("/").split("/")[3] == "external-download"
+        ):
             external_parts = parsed.path.strip("/").split("/")
             if len(external_parts) >= 4 and external_parts[1] == "mods" and external_parts[3] == "external-download":
                 data = self.read_json()
@@ -804,6 +808,22 @@ class Handler(BaseHTTPRequestHandler):
             if parsed.path == "/api/auth/logout":
                 self.clear_session()
                 return
+            external_parts = parsed.path.strip("/").split("/")
+            if len(external_parts) >= 4 and external_parts[1] == "mods" and external_parts[3] == "external-download":
+                data = self.read_json()
+                visitor_key = str(data.get("visitor_key", "")).strip()
+                if not visitor_key or len(visitor_key) > 128:
+                    return self.send_json(400, {"error": "A valid visitor key is required"})
+                with db() as c:
+                    mod = execute(c, "SELECT id FROM mods WHERE id=? AND approved=1", (external_parts[2],)).fetchone()
+                    if not mod:
+                        return self.send_json(404, {"error": "Mod not found"})
+                    inserted = execute(c, "INSERT INTO mod_external_downloads(mod_id,visitor_key,created_at) VALUES(?,?,?) ON CONFLICT(mod_id,visitor_key) DO NOTHING",
+                                       (external_parts[2], visitor_key, now()))
+                    if inserted.rowcount:
+                        execute(c, "UPDATE mods SET download_count=download_count+1 WHERE id=?", (external_parts[2],))
+                    count = execute(c, "SELECT download_count FROM mods WHERE id=?", (external_parts[2],)).fetchone()
+                return self.send_json(200, {"count": (count["download_count"] if isinstance(count, dict) else count[0]) if count else 0})
             user = self.require_user()
             if not user:
                 return
@@ -902,13 +922,37 @@ class Handler(BaseHTTPRequestHandler):
                 username = str(data.get("username", "")).strip()
                 if not 3 <= len(username) <= 24 or not all(character.isalnum() or character in "_-" for character in username):
                     return self.send_json(400, {"error": "Username must be 3-24 characters and use only letters, numbers, _ or -"})
+                old_username = user["username"]
                 with db() as c:
                     existing = execute(c, "SELECT id FROM users WHERE lower(username)=lower(?) AND id<>?",
                                        (username, user["id"])).fetchone()
                     if existing:
                         return self.send_json(409, {"error": "That username is already taken"})
                     execute(c, "UPDATE users SET username=? WHERE id=?", (username, user["id"]))
-                return self.send_json(200, self.public_user())
+                username_changed = username.lower() != str(old_username).lower()
+                email_error = None
+                if username_changed:
+                    try:
+                        send_email(
+                            user["email"],
+                            "Your BeamMods username was changed",
+                            f"Hi {old_username},\n\n"
+                            f"Your BeamMods username was changed from @{old_username} to @{username}.\n\n"
+                            "If you did not make this change, sign in and contact BeamMods support.\n\n"
+                            "BeamMods",
+                            f"<p>Hi {escape(old_username)},</p>"
+                            f"<p>Your BeamMods username was changed from <strong>@{escape(old_username)}</strong> "
+                            f"to <strong>@{escape(username)}</strong>.</p>"
+                            "<p>If you did not make this change, sign in and contact BeamMods support.</p>"
+                            "<p>BeamMods</p>"
+                        )
+                    except (RuntimeError, OSError, smtplib.SMTPException) as error:
+                        email_error = str(error)
+                response = self.public_user() or {}
+                response["email_notification_sent"] = bool(username_changed and email_error is None)
+                if email_error:
+                    response["email_notification_warning"] = email_error
+                return self.send_json(200, response)
             if len(parts) != 3 or parts[:2] != ["api", "mods"]:
                 return
             data = self.read_json()

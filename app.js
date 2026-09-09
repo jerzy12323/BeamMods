@@ -146,6 +146,14 @@ function saveView(view) {
   window.history.pushState({ view }, document.title, `${window.location.pathname}${suffix}`);
 }
 
+function restoreSavedView() {
+  const view = localStorage.getItem("beammods-current-view");
+  if (view === "dashboard-owner" && currentUser && isOwnerAccount()) showOwnerPage();
+  else if (view === "dashboard-bug" && currentUser) showDashboardBugView();
+  else if (view === "dashboard-published" && currentUser) showDashboard(false);
+  else showLibrary();
+}
+
 window.addEventListener("popstate", (event) => {
   restoringHistory = true;
   const view = event.state?.view || "library";
@@ -368,12 +376,14 @@ document.querySelector("#profile-name-form").addEventListener("submit", async (e
   const input = document.querySelector("#profile-username");
   const message = document.querySelector("#profile-name-message");
   const username = input.value.trim();
+  const previousUsername = currentUser.username;
   message.textContent = "";
   if (!/^[A-Za-z0-9_-]{3,24}$/.test(username)) {
     message.textContent = "Use 3-24 letters, numbers, _ or -.";
     return;
   }
   try {
+    let emailWarning = "";
     if (remoteMode) {
       const result = await apiRequest("/api/me", {
         method: "PUT",
@@ -381,6 +391,7 @@ document.querySelector("#profile-name-form").addEventListener("submit", async (e
         body: JSON.stringify({ username })
       });
       currentUser.username = result.username;
+      emailWarning = result.email_notification_warning || "";
     } else {
       const users = getUsers();
       const duplicate = users.some((user) => user.username.toLowerCase() === username.toLowerCase()
@@ -400,7 +411,11 @@ document.querySelector("#profile-name-form").addEventListener("submit", async (e
     localStorage.setItem("beammods-current-user", JSON.stringify(currentUser));
     updateAccountButton();
     showDashboard();
-    message.textContent = "Username updated.";
+    message.textContent = username.toLowerCase() === previousUsername.toLowerCase()
+      ? "That is already your current username."
+      : emailWarning
+      ? "Username updated, but the email notification could not be sent."
+      : "Username updated. A confirmation email was sent.";
   } catch (error) {
     message.textContent = error.message;
   }
@@ -455,17 +470,19 @@ async function renderOwnerReports() {
   if (!target) return;
   if (!remoteMode) {
     const reports = JSON.parse(localStorage.getItem("beammods-bug-reports") || "[]");
-    target.innerHTML = reports.length ? reports.map((report, index) => `<details class="approval-card report-card"><summary><div class="profile-mod-main"><strong>${escapeHtml(report.modName || report.title)}</strong><span>${escapeHtml(report.reporter || "Guest")} · ${escapeHtml(report.type || "Other")} · ${new Date(report.createdAt).toLocaleString()}</span></div><button class="delete-report text-button" type="button" data-report-index="${index}">Delete</button><span class="report-chevron">+</span></summary><div class="report-details"><p>${escapeHtml(report.details || report.body)}</p></div></details>`).join("") : "<p class='form-note'>No reports yet.</p>";
+    target.innerHTML = reports.length ? reports.map((report, index) => `<details class="approval-card report-card"><summary><div class="report-summary-main"><strong>${escapeHtml(report.modName || report.title || "Untitled report")}</strong><span>${escapeHtml(report.reporter || "Guest")} · ${escapeHtml(report.type || "Other")} · ${new Date(report.createdAt).toLocaleString()}</span></div><button class="delete-report text-button" type="button" data-report-index="${index}">Delete</button><span class="report-chevron">+</span></summary><div class="report-details"><p>${escapeHtml(report.details || report.body || "No additional details provided.")}</p></div></details>`).join("") : "<p class='form-note'>No reports yet.</p>";
     return;
   }
   try {
     const reports = await apiRequest("/api/reports");
-    target.innerHTML = reports.length ? reports.map((report) => `<details class="approval-card report-card"><summary><div class="profile-mod-main"><strong>${escapeHtml(report.title)}</strong><span>${escapeHtml(report.username)} · ${escapeHtml(report.email)} · ${new Date(report.created_at).toLocaleString()}</span></div><button class="delete-report text-button" type="button" data-report-id="${report.id}">Delete</button><span class="report-chevron">+</span></summary><div class="report-details"><p>${escapeHtml(report.body)}</p></div></details>`).join("") : "<p class='form-note'>No reports yet.</p>";
+    target.innerHTML = reports.length ? reports.map((report) => `<details class="approval-card report-card"><summary><div class="report-summary-main"><strong>${escapeHtml(report.title || "Untitled report")}</strong><span>${escapeHtml(report.username || "Guest")} · ${escapeHtml(report.email || "No email")} · ${new Date(report.created_at).toLocaleString()}</span></div><button class="delete-report text-button" type="button" data-report-id="${report.id}">Delete</button><span class="report-chevron">+</span></summary><div class="report-details"><p>${escapeHtml(report.body || "No additional details provided.")}</p></div></details>`).join("") : "<p class='form-note'>No reports yet.</p>";
   } catch (error) {
     target.innerHTML = `<p class="form-note form-error">${escapeHtml(error.message)}</p>`;
   }
 
-  document.querySelector("#owner-reports").addEventListener("click", (event) => {
+  if (target.dataset.reportHandlerBound === "1") return;
+  target.dataset.reportHandlerBound = "1";
+  target.addEventListener("click", (event) => {
     const button = event.target.closest(".delete-report");
     if (!button) return;
     event.preventDefault();
@@ -566,6 +583,7 @@ function showOwnerPage() {
 }
 
 function renderMods() {
+  updateCommunityModCount();
   const query = searchInput.value.trim().toLowerCase();
   const panelQuery = panelSearch.value.trim().toLowerCase();
   const authorQuery = authorSearch.value.trim().toLowerCase();
@@ -610,6 +628,13 @@ function renderMods() {
     button.disabled = false;
     button.classList.toggle("active", page === currentLibraryPage);
   });
+}
+
+function updateCommunityModCount() {
+  const countElement = document.querySelector("#community-mod-count");
+  if (!countElement) return;
+  const publishedCount = mods.filter((mod) => !isRemovedLegacyMod(mod) && mod.approved !== false && !mod.isTest).length;
+  countElement.textContent = String(publishedCount);
 }
 
 function escapeHtml(value) {
@@ -748,15 +773,16 @@ function getDownloadStore() {
   } catch {
     return {};
   }
-  function getExternalVisitorKey() {
-    const storageKey = "beammods-external-visitor-key";
-    let key = localStorage.getItem(storageKey);
-    if (!key) {
-      key = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      localStorage.setItem(storageKey, key);
-    }
-    return key;
+}
+
+function getExternalVisitorKey() {
+  const storageKey = "beammods-external-visitor-key";
+  let key = localStorage.getItem(storageKey);
+  if (!key) {
+    key = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(storageKey, key);
   }
+  return key;
 }
 
 function openDetails(mod) {
@@ -840,7 +866,9 @@ function openDetails(mod) {
         likeButton.disabled = true;
         likeButton.textContent = `♥ Liked · ${favorite.count}`;
       })
-      .catch(() => {});
+      .catch((error) => {
+        console.warn("Download counter update failed:", error.message);
+      });
   }
   document.querySelector(".details-tech")?.remove();
   detailsStats.insertAdjacentHTML("beforebegin", `<div class="details-tech"><span>${escapeHtml(mod.size || "Size N/A")}</span><span>v${escapeHtml(mod.version || "N/A")}</span><span>${escapeHtml(mod.configs ?? "-")} configs</span></div>`);
@@ -2184,7 +2212,11 @@ renderMods();
 Promise.resolve()
   .then(() => syncServerSession())
   .then(() => Promise.all([syncCommunityMods(), syncUserMods()]))
-  .catch((error) => console.warn("Community sync unavailable:", error.message));
+  .then(() => { if (!hasAuthLink) restoreSavedView(); })
+  .catch((error) => {
+    console.warn("Community sync unavailable:", error.message);
+    if (!hasAuthLink) restoreSavedView();
+  });
 updateAccountButton();
 updateAuthForm();
 showGoogleAuthResult();
@@ -2192,5 +2224,6 @@ if (hasAuthLink) {
   showLibrary();
   if (authLinkParams.has("activation")) activateAccountFromLink();
   if (authLinkParams.has("reset")) openPasswordResetFromLink();
+} else {
+  document.body.classList.remove("dashboard-mode");
 }
-else showLibrary();
