@@ -1756,6 +1756,30 @@ body { font-size: 15px; }
   .hero-metrics { margin-top: 42px; }
   .hero-art-caption span { font-size: 17px; }
 }
+
+/* Keep mod cards compact instead of stretching empty content space. */
+.mod-card {
+  min-height: 0;
+}
+.card-details-button {
+  margin-top: 24px;
+}
+.mods-grid.list-view .card-details-button {
+  margin-top: 0;
+}
+
+/* Keep the header actions closer to the right edge on wide layouts. */
+@media (min-width: 801px) {
+  .site-header {
+    padding-right: 2.5vw;
+  }
+  .discord-button {
+    margin-right: 10px;
+  }
+  .account-button {
+    margin-right: 10px;
+  }
+}
 @media (max-width: 800px) {
   .build-notice-inner { width: min(100% - 32px, 680px); }
   .build-notice-copy { display: grid; gap: 1px; }
