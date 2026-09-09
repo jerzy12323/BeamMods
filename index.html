@@ -5,15 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="BeamMods - a community mod hub for BeamNG.drive">
   <title>BeamMods — BeamNG.drive mods</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260908-1">
-  <link rel="apple-touch-icon" href="favicon.svg?v=20260908-1">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260909-3">
+  <link rel="apple-touch-icon" href="favicon.svg?v=20260909-3">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260909-3">
+  <link rel="stylesheet" href="styles.css?v=20260909-12">
 </head>
 <body>
   <div class="noise"></div>
+  <section class="build-notice" id="build-notice" role="status" aria-live="polite">
+    <div class="build-notice-inner">
+      <span class="build-notice-icon" aria-hidden="true">!</span>
+      <div class="build-notice-copy">
+        <strong>BeamMods is still in development</strong>
+        <span>Some features may change or show occasional issues while we improve the platform.</span>
+      </div>
+      <span class="build-notice-badge">Early access</span>
+    </div>
+  </section>
   <section class="google-pending-notice" id="google-pending-notice" hidden role="status" aria-live="polite">
     <button class="google-pending-close" id="google-pending-close" type="button" aria-label="Close">×</button>
     <div class="google-pending-icon">✓</div>
@@ -25,7 +35,12 @@
   </section>
   <header class="site-header">
     <a class="brand" href="#" aria-label="BeamMods — home">
-      <span class="brand-mark">B</span>
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32">
+          <path d="M7 7h7.2c4.2 0 6.7 1.9 6.7 5.1 0 1.8-.9 3.2-2.6 4.1 2.7.7 4.3 2.4 4.3 4.9 0 3.8-3 5.9-7.8 5.9H7V7Zm5 4v5h2.3c2.1 0 3.2-.8 3.2-2.5S16.4 11 14.3 11H12Zm0 9v5h2.6c2.2 0 3.4-.9 3.4-2.5S16.8 20 14.6 20H12Z"/>
+          <path d="M23 7h3v20h-3z" opacity=".36"/>
+        </svg>
+      </span>
       <span>Beam<span>Mods</span></span>
     </a>
     <nav class="main-nav" aria-label="Main navigation">
@@ -33,7 +48,10 @@
       <a id="how-link" href="#how-it-works">How it works</a>
     </nav>
     <a class="discord-button" href="https://discord.gg/bnqtqgaSx" target="_blank" rel="noopener noreferrer" aria-label="Join the BeamMods Discord server">
-      <span aria-hidden="true">◈</span> Discord
+      <svg class="discord-logo" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M19.54 5.16A16.2 16.2 0 0 0 15.5 4l-.5 1.02a14.5 14.5 0 0 0-3-.32 14.5 14.5 0 0 0-3 .32L8.5 4a16.2 16.2 0 0 0-4.04 1.16C1.9 9.04 1.2 12.83 1.55 16.57A16.3 16.3 0 0 0 6.5 19l1.2-1.63c-.66-.24-1.3-.55-1.9-.91l.46-.35c3.67 1.7 7.66 1.7 11.28 0l.47.35c-.6.36-1.24.67-1.9.91L17.3 19a16.3 16.3 0 0 0 4.95-2.43c.41-4.34-.7-8.1-2.71-11.41ZM8.72 14.3c-1.1 0-2-.98-2-2.18s.88-2.18 2-2.18 2 .98 2 2.18-.9 2.18-2 2.18Zm6.56 0c-1.1 0-2-.98-2-2.18s.88-2.18 2-2.18 2 .98 2 2.18-.9 2.18-2 2.18Z"/>
+      </svg>
+      <span>Discord</span>
     </a>
     <button class="account-button" data-open-auth><span class="account-avatar" id="account-avatar" aria-hidden="true">?</span><span id="account-label">Sign in</span></button>
     <button class="upload-button" data-open-upload>
@@ -53,7 +71,7 @@
   <main>
     <section class="dashboard-page" id="dashboard-page" hidden>
       <div class="dashboard-top">
-        <div><p class="eyebrow">Creator workspace</p><h1>Your <em>dashboard.</em></h1></div>
+        <div><p class="eyebrow">Creator workspace</p><h1 id="dashboard-heading">Your <em>dashboard.</em></h1></div>
         <button class="back-button" id="back-to-library">← Back to library</button>
       </div>
       <div class="dashboard-grid">
@@ -403,6 +421,6 @@
       <p class="form-note">This static demo does not process legal notices automatically. A production site should route DMCA requests to the site owner or designated agent.</p>
     </section>
   </div>
-  <script src="app.js?v=20260909-4"></script>
+  <script src="app.js?v=20260909-8"></script>
 </body>
 </html>

@@ -277,6 +277,7 @@ function showDashboard(sync = true) {
   librarySections.forEach((section) => { section.hidden = true; });
   dashboardPage.hidden = false;
   showPublishedView();
+  document.querySelector("#dashboard-heading").innerHTML = `${escapeHtml(currentUser.username)}'s <em>dashboard.</em>`;
   document.querySelector("#dashboard-name").textContent = `@${currentUser.username}`;
   document.querySelector("#dashboard-email").textContent = currentUser.email || "Google account";
   document.querySelector("#profile-username").value = currentUser.username;
@@ -296,6 +297,7 @@ function showDashboard(sync = true) {
 }
 
 function mapRemoteMod(mod) {
+  const images = remoteImageList(mod);
   return {
     id: mod.id,
     name: mod.name,
@@ -316,12 +318,26 @@ function mapRemoteMod(mod) {
     owner: mod.username || mod.author,
     publishedAt: mod.created_at,
     updatedAt: mod.created_at,
-    image: mediaUrl(mod.image_path),
-    images: mod.image_path ? [mediaUrl(mod.image_path)] : [],
+    image: images[0] || "",
+    images,
     downloadUrl: mod.download_url || "",
     fileId: "",
     fileName: mod.original_filename || ""
   };
+}
+
+function remoteImageList(mod) {
+  let paths = mod.image_paths;
+  if (typeof paths === "string") {
+    try {
+      paths = JSON.parse(paths);
+    } catch {
+      paths = [];
+    }
+  }
+  if (!Array.isArray(paths)) paths = [];
+  if (!paths.length && mod.image_path) paths = [mod.image_path];
+  return paths.filter(Boolean).map((path) => mediaUrl(path));
 }
 
 async function syncUserMods() {
@@ -393,7 +409,7 @@ document.querySelector("#profile-name-form").addEventListener("submit", async (e
 function renderPendingMods() {
   const pending = mods.filter((mod) => mod.approved === false && !mod.isTest);
   document.querySelector("#pending-mods").innerHTML = pending.length
-    ? pending.map((mod) => `<article class="approval-card"><div class="profile-mod-image approval-image" style="${mod.image ? `background-image:url('${escapeHtml(mod.image)}')` : ""}">${mod.image ? "" : escapeHtml(mod.icon)}</div><div class="profile-mod-main"><strong>${escapeHtml(mod.name)}</strong><span>by ${escapeHtml(mod.author)} · ${escapeHtml(mod.category)} · v${escapeHtml(mod.version)}</span><p>${escapeHtml(mod.description)}</p><small>${escapeHtml(mod.size)} · ${escapeHtml(mod.configs)} configs</small></div><div class="approval-actions"><button class="preview-mod back-button" data-mod-name="${escapeHtml(mod.name)}">Preview details</button>${mod.downloadUrl ? `<button class="preview-mod back-button" data-url="${escapeHtml(mod.downloadUrl)}">Check download</button>` : ""}<button class="approve-mod submit-button" data-mod-name="${escapeHtml(mod.name)}">Accept</button><button class="reject-mod text-button" data-mod-name="${escapeHtml(mod.name)}">Reject</button></div></article>`).join("")
+    ? pending.map((mod) => `<article class="approval-card"><div class="profile-mod-image approval-image" style="${mod.image ? `background-image:url('${escapeHtml(mod.image)}')` : ""}">${mod.image ? "" : escapeHtml(mod.icon)}</div><div class="profile-mod-main"><strong>${escapeHtml(mod.name)}</strong><span>by ${escapeHtml(mod.author)} · ${escapeHtml(mod.category)} · v${escapeHtml(mod.version)}</span><p>${escapeHtml(mod.description)}</p><small>${escapeHtml(mod.size)} · ${escapeHtml(mod.configs)} configs</small></div><div class="approval-actions"><button class="preview-mod back-button" data-mod-id="${escapeHtml(mod.id || "")}" data-mod-name="${escapeHtml(mod.name)}">Preview details</button>${mod.downloadUrl ? `<button class="preview-mod back-button" data-mod-id="${escapeHtml(mod.id || "")}" data-url="${escapeHtml(mod.downloadUrl)}">Check download</button>` : ""}<button class="approve-mod submit-button" data-mod-id="${escapeHtml(mod.id || "")}" data-mod-name="${escapeHtml(mod.name)}">Accept</button><button class="reject-mod text-button" data-mod-id="${escapeHtml(mod.id || "")}" data-mod-name="${escapeHtml(mod.name)}">Reject</button></div></article>`).join("")
     : "<p class='form-note'>No mods are waiting for approval.</p>";
 }
 
@@ -423,8 +439,8 @@ async function syncPendingMods() {
       owner: mod.username || mod.author,
       publishedAt: mod.created_at,
       updatedAt: mod.created_at,
-      image: mediaUrl(mod.image_path),
-      images: mod.image_path ? [mediaUrl(mod.image_path)] : [],
+      image: remoteImageList(mod)[0] || "",
+      images: remoteImageList(mod),
       downloadUrl: mod.download_url || "",
       fileId: "",
       fileName: mod.original_filename || ""
@@ -732,6 +748,15 @@ function getDownloadStore() {
   } catch {
     return {};
   }
+  function getExternalVisitorKey() {
+    const storageKey = "beammods-external-visitor-key";
+    let key = localStorage.getItem(storageKey);
+    if (!key) {
+      key = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem(storageKey, key);
+    }
+    return key;
+  }
 }
 
 function openDetails(mod) {
@@ -921,7 +946,11 @@ function openDetails(mod) {
   downloadButton.onclick = async () => {
     if (remoteMode && mod.downloadUrl) {
       window.open(getExternalDownloadUrl(mod.downloadUrl), "_blank", "noopener,noreferrer");
-      apiRequest(`/api/mods/${mod.id}/download`, { method: "POST" })
+      apiRequest(`/api/mods/${mod.id}/external-download`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visitor_key: getExternalVisitorKey() })
+      })
         .then((result) => {
           mod.downloads = result.count;
           const downloadStat = Array.from(detailsStats.querySelectorAll("span")).find((item) => item.textContent.includes("downloads"));
@@ -1466,9 +1495,8 @@ authForm.addEventListener("submit", async (event) => {
         avatar: "",
         createdAt: result.created_at || new Date().toISOString()
       };
-      addNotification("Welcome back", "You have successfully signed in to your BeamMods account.", `login-${currentUser.email}-${Date.now()}`);
       localStorage.setItem("beammods-current-user", JSON.stringify(currentUser));
-      addNotification("Welcome to BeamMods", "You are now signed in and ready to explore the community library.", `login-${currentUser.email}-${Date.now()}`);
+      addNotification("Welcome back", "You have successfully signed in to your BeamMods account.", `login-${currentUser.email}-signin`);
       authForm.reset();
       authModal.hidden = true;
       updateAccountButton();
@@ -1479,11 +1507,28 @@ authForm.addEventListener("submit", async (event) => {
     return;
   }
   if (authMode === "register") {
+    if (!/^[A-Za-z0-9_-]{3,24}$/.test(username)) {
+      showAuthMessage("Use 3-24 letters, numbers, _ or -.");
+      return;
+    }
+    if (password.length < 8) {
+      showAuthMessage("Password must be at least 8 characters.");
+      return;
+    }
     if (users.some((user) => user.username.toLowerCase() === username.toLowerCase())) {
       showAuthMessage("That username is already taken.");
       return;
     }
-    const user = { username, email: data.get("email"), password, avatar: "", createdAt: new Date().toISOString() };
+    const email = String(data.get("email") || "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showAuthMessage("Enter a valid email address.");
+      return;
+    }
+    if (users.some((user) => String(user.email || "").toLowerCase() === email)) {
+      showAuthMessage("That email is already registered.");
+      return;
+    }
+    const user = { username, email, password, avatar: "", createdAt: new Date().toISOString() };
     users.push(user);
     localStorage.setItem("beammods-users", JSON.stringify(users));
     if (!localStorage.getItem("beammods-owner-username")) {
@@ -1647,10 +1692,17 @@ document.querySelector("#pending-mods").addEventListener("click", (event) => {
   event.stopPropagation();
   if (button.classList.contains("preview-mod")) {
     if (button.dataset.url) window.open(button.dataset.url, "_blank", "noopener");
-    else openDetails(mods.find((item) => item.name === button.dataset.modName));
+    else {
+      const previewMod = button.dataset.modId
+        ? mods.find((item) => String(item.id) === button.dataset.modId)
+        : mods.find((item) => item.name === button.dataset.modName);
+      openDetails(previewMod);
+    }
     return;
   }
-  const mod = mods.find((item) => item.name === button.dataset.modName);
+  const mod = button.dataset.modId
+    ? mods.find((item) => String(item.id) === button.dataset.modId)
+    : mods.find((item) => item.name === button.dataset.modName);
   if (mod && button.classList.contains("approve-mod")) {
     askConfirmation("Accept this mod?", "Have you checked the preview, description and download source? Accepting makes this mod public.", async () => {
       if (remoteMode && mod.id) {
@@ -1856,9 +1908,7 @@ async function finishUpload(data, file, images, source, downloadUrl) {
     if (source === "link") upload.append("downloadUrl", downloadUrl);
     if (source === "file" && file) upload.append("file", file, file.name);
     try {
-      if (validImages[0]) {
-        upload.append("preview", validImages[0], validImages[0].name);
-      }
+      validImages.forEach((image) => upload.append("preview", image, image.name));
       const remoteMod = await apiRequest("/api/mods", { method: "POST", body: upload, timeoutMs: 180000 });
       mods.unshift({
         id: remoteMod.id,
@@ -1879,8 +1929,8 @@ async function finishUpload(data, file, images, source, downloadUrl) {
         owner: remoteMod.username || remoteMod.author,
         publishedAt: remoteMod.created_at,
         updatedAt: remoteMod.created_at,
-        image: mediaUrl(remoteMod.image_path),
-        images: remoteMod.image_path ? [mediaUrl(remoteMod.image_path)] : [],
+        image: remoteImageList(remoteMod)[0] || "",
+        images: remoteImageList(remoteMod),
         downloadUrl: remoteMod.download_url || "",
         fileId: "",
         fileName: remoteMod.original_filename || ""
@@ -1985,8 +2035,8 @@ async function syncCommunityMods() {
     const remoteMod = remoteByName.get(String(localMod.name).toLowerCase());
     if (remoteMod) {
       Object.assign(localMod, mapRemoteMod(remoteMod), {
-        image: mediaUrl(remoteMod.image_path) || localMod.image,
-        images: remoteMod.image_path ? [mediaUrl(remoteMod.image_path)] : localMod.images
+        image: remoteImageList(remoteMod)[0] || localMod.image,
+        images: remoteImageList(remoteMod).length ? remoteImageList(remoteMod) : localMod.images
       });
     }
   });
@@ -2012,8 +2062,8 @@ async function syncCommunityMods() {
       owner: mod.username || mod.author,
       publishedAt: mod.created_at,
       updatedAt: mod.created_at,
-      image: mediaUrl(mod.image_path),
-      images: mod.image_path ? [mediaUrl(mod.image_path)] : [],
+      image: remoteImageList(mod)[0] || "",
+      images: remoteImageList(mod),
       downloadUrl: mod.download_url || "",
       fileId: "",
       fileName: mod.original_filename || ""

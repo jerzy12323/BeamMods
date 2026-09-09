@@ -11,6 +11,7 @@ from html import escape
 import json
 import mimetypes
 import os
+import re
 import secrets
 import smtplib
 import shutil
@@ -188,7 +189,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS mods (
               id INTEGER PRIMARY KEY, owner_id INTEGER NOT NULL REFERENCES users(id),
               name TEXT NOT NULL, category TEXT NOT NULL, author TEXT NOT NULL, description TEXT NOT NULL,
-              version TEXT NOT NULL, configs INTEGER NOT NULL DEFAULT 0, image_path TEXT,
+              version TEXT NOT NULL, configs INTEGER NOT NULL DEFAULT 0, image_path TEXT, image_paths TEXT,
               download_url TEXT, approved INTEGER NOT NULL DEFAULT 0, download_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS mod_versions (
               id INTEGER PRIMARY KEY, mod_id INTEGER NOT NULL REFERENCES mods(id) ON DELETE CASCADE,
@@ -205,6 +206,9 @@ def init_db():
             CREATE TABLE IF NOT EXISTS mod_downloads (
               mod_id INTEGER NOT NULL REFERENCES mods(id) ON DELETE CASCADE, user_id INTEGER NOT NULL REFERENCES users(id),
               created_at TEXT NOT NULL, PRIMARY KEY(mod_id,user_id));
+            CREATE TABLE IF NOT EXISTS mod_external_downloads (
+              mod_id INTEGER NOT NULL REFERENCES mods(id) ON DELETE CASCADE, visitor_key TEXT NOT NULL,
+              created_at TEXT NOT NULL, PRIMARY KEY(mod_id,visitor_key));
             CREATE TABLE IF NOT EXISTS bug_reports (
               id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES users(id), mod_id INTEGER REFERENCES mods(id),
               title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL);
@@ -219,7 +223,7 @@ def init_db():
               activation_token TEXT, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS mods (id SERIAL PRIMARY KEY, owner_id INTEGER NOT NULL REFERENCES users(id), name TEXT NOT NULL,
               category TEXT NOT NULL, author TEXT NOT NULL, description TEXT NOT NULL, version TEXT NOT NULL, configs INTEGER NOT NULL DEFAULT 0,
-              image_path TEXT, download_url TEXT, approved INTEGER NOT NULL DEFAULT 0, download_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+              image_path TEXT, image_paths TEXT, download_url TEXT, approved INTEGER NOT NULL DEFAULT 0, download_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS mod_versions (id SERIAL PRIMARY KEY, mod_id INTEGER NOT NULL REFERENCES mods(id) ON DELETE CASCADE,
               version TEXT NOT NULL, zip_path TEXT NOT NULL, original_filename TEXT, sha256 TEXT NOT NULL, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS comments (id SERIAL PRIMARY KEY, mod_id INTEGER NOT NULL REFERENCES mods(id) ON DELETE CASCADE,
@@ -230,6 +234,8 @@ def init_db():
               PRIMARY KEY(mod_id,user_id));
             CREATE TABLE IF NOT EXISTS mod_downloads (mod_id INTEGER REFERENCES mods(id) ON DELETE CASCADE, user_id INTEGER REFERENCES users(id),
               created_at TEXT NOT NULL, PRIMARY KEY(mod_id,user_id));
+            CREATE TABLE IF NOT EXISTS mod_external_downloads (mod_id INTEGER REFERENCES mods(id) ON DELETE CASCADE,
+              visitor_key TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(mod_id,visitor_key));
             CREATE TABLE IF NOT EXISTS bug_reports (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id),
               mod_id INTEGER REFERENCES mods(id), title TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS sessions (
@@ -249,6 +255,8 @@ def init_db():
             mod_columns = {row[1] for row in connection.execute("PRAGMA table_info(mods)")}
             if "download_url" not in mod_columns:
                 connection.execute("ALTER TABLE mods ADD COLUMN download_url TEXT")
+            if "image_paths" not in mod_columns:
+                connection.execute("ALTER TABLE mods ADD COLUMN image_paths TEXT")
             user_columns = {row[1] for row in connection.execute("PRAGMA table_info(users)")}
             if "is_active" not in user_columns:
                 connection.execute("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 0")
@@ -270,6 +278,9 @@ def init_db():
                               "WHERE table_name='mods' AND column_name='download_url'").fetchone()
             if not column:
                 execute(connection, "ALTER TABLE mods ADD COLUMN download_url TEXT")
+            column = execute(connection, "SELECT 1 FROM information_schema.columns WHERE table_name='mods' AND column_name='image_paths'").fetchone()
+            if not column:
+                execute(connection, "ALTER TABLE mods ADD COLUMN image_paths TEXT")
             for name, definition in (("is_active", "INTEGER NOT NULL DEFAULT 0"), ("activation_token", "TEXT")):
                 column = execute(connection, "SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name=?", (name,)).fetchone()
                 if not column:
@@ -421,6 +432,22 @@ class Handler(BaseHTTPRequestHandler):
                 pass
             return self.send_json(200, {"ok": True, "message": "Your account is active. You can now sign in."})
         if parsed.path == "/api/mods/pending":
+            external_parts = parsed.path.strip("/").split("/")
+            if len(external_parts) >= 4 and external_parts[1] == "mods" and external_parts[3] == "external-download":
+                data = self.read_json()
+                visitor_key = str(data.get("visitor_key", "")).strip()
+                if not visitor_key or len(visitor_key) > 128:
+                    return self.send_json(400, {"error": "A valid visitor key is required"})
+                with db() as c:
+                    mod = execute(c, "SELECT id FROM mods WHERE id=? AND approved=1", (external_parts[2],)).fetchone()
+                    if not mod:
+                        return self.send_json(404, {"error": "Mod not found"})
+                    inserted = execute(c, "INSERT INTO mod_external_downloads(mod_id,visitor_key,created_at) VALUES(?,?,?) ON CONFLICT(mod_id,visitor_key) DO NOTHING",
+                                       (external_parts[2], visitor_key, now()))
+                    if inserted.rowcount:
+                        execute(c, "UPDATE mods SET download_count=download_count+1 WHERE id=?", (external_parts[2],))
+                    count = execute(c, "SELECT download_count FROM mods WHERE id=?", (external_parts[2],)).fetchone()
+                return self.send_json(200, {"count": (count["download_count"] if isinstance(count, dict) else count[0]) if count else 0})
             user = self.require_user()
             if not is_owner_user(user):
                 return self.send_json(403, {"error": "Owner access required"})
@@ -600,18 +627,20 @@ class Handler(BaseHTTPRequestHandler):
                 continue
             filename = part.get_filename()
             if filename:
-                files[name] = type("Upload", (), {
+                upload = type("Upload", (), {
                     "filename": filename, "file": io.BytesIO(part.get_payload(decode=True) or b"")
                 })()
+                files.setdefault(name, []).append(upload)
             else:
                 fields[name] = part.get_payload(decode=True).decode("utf-8", "replace")
         data = fields
-        upload = files.get("zip") or files.get("file")
-        preview = files.get("preview") or files.get("image")
+        upload = (files.get("zip") or files.get("file") or [None])[0]
+        preview = files.get("preview") or files.get("image") or []
         return data, upload, preview
 
     def save_upload(self, upload, preview, mod_id):
-        zip_path = image_path = None
+        zip_path = None
+        image_paths = []
         if upload is not None and getattr(upload, "filename", None):
             if not str(upload.filename).lower().endswith(".zip"):
                 raise ValueError("Only ZIP uploads are supported")
@@ -624,39 +653,46 @@ class Handler(BaseHTTPRequestHandler):
                         raise ValueError("Unsafe ZIP path")
             zip_path = f"uploads/{uuid.uuid4().hex}.zip"
             (DATA / zip_path).write_bytes(content)
-        if preview is not None and getattr(preview, "filename", None):
-            ext = Path(preview.filename).suffix.lower()
+        for image in preview or []:
+            if not getattr(image, "filename", None):
+                continue
+            ext = Path(image.filename).suffix.lower()
             if ext not in (".png", ".jpg", ".jpeg", ".webp"):
                 raise ValueError("Unsupported preview image")
             image_path = f"uploads/{uuid.uuid4().hex}{ext}"
-            (DATA / image_path).write_bytes(preview.file.read())
-        return zip_path, image_path
+            (DATA / image_path).write_bytes(image.file.read())
+            image_paths.append(image_path)
+        return zip_path, image_paths
 
     def do_POST(self):
         parsed = urlparse(self.path)
         try:
             if parsed.path == "/api/auth/register":
                 data = self.read_json()
+                username = str(data.get("username", "")).strip()
+                password = str(data.get("password", ""))
                 email = str(data.get("email", "")).strip()
-                if len(data["username"].strip()) < 3 or len(data["password"]) < 8:
-                    return self.send_json(400, {"error": "Username or password is too short"})
+                if not re.fullmatch(r"[A-Za-z0-9_-]{3,24}", username):
+                    return self.send_json(400, {"error": "Username must be 3-24 characters and use only letters, numbers, _ or -"})
+                if len(password) < 8:
+                    return self.send_json(400, {"error": "Password must be at least 8 characters"})
                 if "@" not in email or "." not in email.rsplit("@", 1)[-1]:
                     return self.send_json(400, {"error": "A valid email address is required"})
                 activation_token = secrets.token_urlsafe(32)
                 with db() as connection:
                     existing = execute(connection, "SELECT 1 FROM users WHERE lower(username)=lower(?) OR lower(email)=lower(?)",
-                                       (data["username"].strip(), email)).fetchone()
+                                       (username, email)).fetchone()
                     if existing:
                         return self.send_json(409, {"error": "That username or email is already registered"})
-                    owner = data["username"].strip().lower() == OWNER_USERNAME or email.lower() == OWNER_EMAIL
+                    owner = username.lower() == OWNER_USERNAME or email.lower() == OWNER_EMAIL
                     statement = "INSERT INTO users(username,email,password_hash,is_owner,is_active,activation_token,created_at) VALUES(?,?,?,?,?,?,?)"
                     if not isinstance(connection, sqlite3.Connection):
                         statement += " RETURNING id"
                     cursor = execute(connection, statement,
-                                     (data["username"].strip(), email, password_hash(data["password"]), int(owner), 0, activation_token, now()))
+                                     (username, email, password_hash(password), int(owner), 0, activation_token, now()))
                     uid = inserted_id(connection, cursor)
                     activation_url = f"{PUBLIC_URL}/?activation={quote(activation_token)}"
-                    username_display = data["username"].strip()
+                    username_display = username
                     username_html = escape(username_display)
                     send_email(email, "Welcome to BeamMods — activate your account",
                                f"Welcome to BeamMods, {username_display}!\n\n"
@@ -685,9 +721,9 @@ class Handler(BaseHTTPRequestHandler):
 </body>
 </html>""")
                     send_email(email, "BeamMods registration received",
-                               f"We received your BeamMods registration for {data['username'].strip()}.\n\n"
+                               f"We received your BeamMods registration for {username}.\n\n"
                                "Use the activation email to finish creating your account.")
-                return self.send_json(201, {"username": data["username"], "email": email, "is_owner": owner,
+                return self.send_json(201, {"username": username, "email": email, "is_owner": owner,
                                             "message": "Your account has been created successfully. Please check your inbox for the BeamMods activation email, then click the confirmation button to finish setting up your account."})
             if parsed.path == "/api/auth/forgot-password":
                 data = self.read_json()
@@ -787,13 +823,14 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("name, category, author, description and version are required")
                 if not upload and not str(data.get("downloadUrl", "")).strip():
                     raise ValueError("Choose a ZIP file or provide a download link")
-                zip_path, image_path = self.save_upload(upload, preview, None)
+                zip_path, image_paths = self.save_upload(upload, preview, None)
+                image_path = image_paths[0] if image_paths else None
                 with db() as connection:
-                    statement = "INSERT INTO mods(owner_id,name,category,author,description,version,configs,image_path,download_url,approved,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)"
+                    statement = "INSERT INTO mods(owner_id,name,category,author,description,version,configs,image_path,image_paths,download_url,approved,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)"
                     if not isinstance(connection, sqlite3.Connection):
                         statement += " RETURNING id"
                     cur = execute(connection, statement,
-                                  (user["id"], *(str(data[k]).strip() for k in required), int(data.get("configs", 0)), image_path,
+                                  (user["id"], *(str(data[k]).strip() for k in required), int(data.get("configs", 0)), image_path, json.dumps(image_paths),
                                    str(data.get("downloadUrl", "")).strip() or None, 0, now()))
                     mod_id = inserted_id(connection, cur)
                     if zip_path:
@@ -812,6 +849,7 @@ class Handler(BaseHTTPRequestHandler):
                     "created_at": now(),
                     "username": user["username"],
                     "image_path": image_path,
+                    "image_paths": image_paths,
                     "original_filename": upload.filename if upload else None
                 }
                 notify_discord_new_mod(response)
@@ -846,8 +884,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(200, {"count": (count["download_count"] if isinstance(count, dict) else count[0]) if count else 0})
         except RuntimeError as error:
             self.send_json(503, {"error": str(error)})
-        except (KeyError, ValueError, sqlite3.IntegrityError, OSError) as error:
-            self.send_json(400, {"error": str(error)})
+        except (KeyError, json.JSONDecodeError, ValueError, sqlite3.IntegrityError, OSError) as error:
+            message = "The request body is invalid." if isinstance(error, json.JSONDecodeError) else str(error)
+            self.send_json(400, {"error": message})
 
     def do_PATCH(self):
         self.do_PUT()
@@ -889,8 +928,9 @@ class Handler(BaseHTTPRequestHandler):
             if not updated:
                 return self.send_json(404, {"error": "Mod not found"})
             return self.send_json(200, updated)
-        except (KeyError, ValueError, sqlite3.Error, OSError) as error:
-            return self.send_json(400, {"error": str(error)})
+        except (KeyError, json.JSONDecodeError, ValueError, sqlite3.Error, OSError) as error:
+            message = "The request body is invalid." if isinstance(error, json.JSONDecodeError) else str(error)
+            return self.send_json(400, {"error": message})
 
     def do_DELETE(self):
         try:
@@ -944,6 +984,7 @@ class Handler(BaseHTTPRequestHandler):
                         execute(connection, "DELETE FROM ratings WHERE mod_id=?", (mod_id,))
                         execute(connection, "DELETE FROM favorites WHERE mod_id=?", (mod_id,))
                         execute(connection, "DELETE FROM mod_downloads WHERE mod_id=?", (mod_id,))
+                        execute(connection, "DELETE FROM mod_external_downloads WHERE mod_id=?", (mod_id,))
                         execute(connection, "DELETE FROM mod_versions WHERE mod_id=?", (mod_id,))
                     execute(connection, "DELETE FROM mods WHERE owner_id=?", (user["id"],))
                     execute(connection, "DELETE FROM comments WHERE user_id=?", (user["id"],))
