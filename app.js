@@ -102,6 +102,7 @@ const categorySelect = document.querySelector("#category-select");
 let activeFilter = "All";
 const viewButtons = document.querySelectorAll(".view-button");
 let activeView = localStorage.getItem("beammods-view") || "grid";
+let activeDetailsMod = null;
 function setLibraryView(view) {
   activeView = view === "list" ? "list" : "grid";
   grid.classList.toggle("list-view", activeView === "list");
@@ -735,6 +736,7 @@ function getDownloadStore() {
 
 function openDetails(mod) {
   if (!mod) return;
+  activeDetailsMod = mod;
   const detailsCover = document.querySelector("#details-cover");
   detailsCover.className = `details-cover ${mod.cover}`;
   const galleryImages = Array.isArray(mod.images) && mod.images.length ? mod.images : (mod.image ? [mod.image] : []);
@@ -2019,7 +2021,33 @@ async function syncCommunityMods() {
   mods = [...imported, ...mods];
   if (!imported.length && !remoteMods.length) return;
   renderMods();
+  if (activeDetailsMod && !detailsModal.hidden) {
+    const refreshed = mods.find((mod) => String(mod.id) === String(activeDetailsMod.id));
+    if (refreshed) {
+      activeDetailsMod = refreshed;
+      const downloadStat = Array.from(document.querySelector("#details-stats").querySelectorAll("span"))
+        .find((item) => item.textContent.includes("downloads"));
+      if (downloadStat) downloadStat.textContent = `↓ ${refreshed.downloads || 0} downloads`;
+    }
+  }
 }
+
+let communitySyncInProgress = false;
+async function refreshCommunityStats() {
+  if (communitySyncInProgress || document.visibilityState !== "visible") return;
+  communitySyncInProgress = true;
+  try {
+    await syncCommunityMods();
+  } catch (error) {
+    console.warn("Community statistics refresh unavailable:", error.message);
+  } finally {
+    communitySyncInProgress = false;
+  }
+}
+window.setInterval(refreshCommunityStats, 15000);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") refreshCommunityStats();
+});
 
 function getImageDimensions(file) {
   return new Promise((resolve, reject) => {
