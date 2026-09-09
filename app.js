@@ -2,9 +2,11 @@ const defaultMods = [];
 const remoteMode = /^https?:$/i.test(window.location.protocol);
 const remoteUploadLimit = 95 * 1024 * 1024;
 const removedDemoEmails = new Set([
+  "okmichal959@gmail.com",
   "chmurkaplis@gmail.com",
   "niewime3@gmail.com",
-  "kacperekmisiak407@gmail.com"
+  "kacperekmisiak407@gmail.com",
+  "kubak9483@gmail.com"
 ]);
 function notificationKey() {
   return currentUser ? String(currentUser.email || currentUser.username).toLowerCase() : "guest";
@@ -2224,9 +2226,11 @@ updateAccountButton();
 updateAuthForm();
 showGoogleAuthResult();
 if (hasAuthLink) {
-  showLibrary();
-  if (authLinkParams.has("activation")) activateAccountFromLink();
-  if (authLinkParams.has("reset")) openPasswordResetFromLink();
+  if (authLinkParams.has("activation")) {
+    activateAccountFromLink();
+  } else if (authLinkParams.has("reset")) {
+    openPasswordResetFromLink();
+  }
 } else {
   document.body.classList.remove("dashboard-mode");
 }

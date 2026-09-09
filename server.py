@@ -110,6 +110,12 @@ OWNER_USERNAMES = {"jerzy", "beamowner"}
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "https://beammods.onrender.com").rstrip("/")
 GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", f"{PUBLIC_URL}/api/auth/google/callback")
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
+TEST_ACCOUNT_EMAILS = (
+    "okmichal959@gmail.com",
+    "niewime3@gmail.com",
+    "chmurkaplis@gmail.com",
+    "kubak9483@gmail.com",
+)
 
 
 def is_owner_user(user):
@@ -292,6 +298,33 @@ def init_db():
             column = execute(connection, "SELECT 1 FROM information_schema.columns WHERE table_name='mods' AND column_name='download_url'").fetchone()
             if not column:
                 execute(connection, "ALTER TABLE mods ADD COLUMN download_url TEXT")
+        placeholders = ",".join("?" for _ in TEST_ACCOUNT_EMAILS)
+        test_users = execute(
+            connection,
+            f"SELECT id FROM users WHERE lower(email) IN ({placeholders})",
+            tuple(email.lower() for email in TEST_ACCOUNT_EMAILS),
+        ).fetchall()
+        for test_user in test_users:
+            test_user_id = test_user["id"] if isinstance(test_user, dict) else test_user[0]
+            owned_mods = execute(connection, "SELECT id FROM mods WHERE owner_id=?", (test_user_id,)).fetchall()
+            owned_mod_ids = [row["id"] if isinstance(row, dict) else row[0] for row in owned_mods]
+            if owned_mod_ids:
+                mod_placeholders = ",".join("?" for _ in owned_mod_ids)
+                execute(connection, f"DELETE FROM bug_reports WHERE mod_id IN ({mod_placeholders})", tuple(owned_mod_ids))
+                execute(connection, f"DELETE FROM comments WHERE mod_id IN ({mod_placeholders})", tuple(owned_mod_ids))
+                execute(connection, f"DELETE FROM ratings WHERE mod_id IN ({mod_placeholders})", tuple(owned_mod_ids))
+                execute(connection, f"DELETE FROM favorites WHERE mod_id IN ({mod_placeholders})", tuple(owned_mod_ids))
+                execute(connection, f"DELETE FROM mod_downloads WHERE mod_id IN ({mod_placeholders})", tuple(owned_mod_ids))
+                execute(connection, f"DELETE FROM mod_external_downloads WHERE mod_id IN ({mod_placeholders})", tuple(owned_mod_ids))
+                execute(connection, f"DELETE FROM mod_versions WHERE mod_id IN ({mod_placeholders})", tuple(owned_mod_ids))
+                execute(connection, f"DELETE FROM mods WHERE id IN ({mod_placeholders})", tuple(owned_mod_ids))
+            execute(connection, "DELETE FROM comments WHERE user_id=?", (test_user_id,))
+            execute(connection, "DELETE FROM ratings WHERE user_id=?", (test_user_id,))
+            execute(connection, "DELETE FROM favorites WHERE user_id=?", (test_user_id,))
+            execute(connection, "DELETE FROM mod_downloads WHERE user_id=?", (test_user_id,))
+            execute(connection, "DELETE FROM bug_reports WHERE user_id=?", (test_user_id,))
+            execute(connection, "DELETE FROM sessions WHERE user_id=?", (test_user_id,))
+            execute(connection, "DELETE FROM users WHERE id=?", (test_user_id,))
         if not isinstance(connection, sqlite3.Connection):
             connection.commit()
 
@@ -726,9 +759,6 @@ class Handler(BaseHTTPRequestHandler):
   </div>
 </body>
 </html>""")
-                    send_email(email, "BeamMods registration received",
-                               f"We received your BeamMods registration for {username}.\n\n"
-                               "Use the activation email to finish creating your account.")
                 return self.send_json(201, {"username": username, "email": email, "is_owner": owner,
                                             "message": "Your account has been created successfully. Please check your inbox for the BeamMods activation email, then click the confirmation button to finish setting up your account."})
             if parsed.path == "/api/auth/forgot-password":
