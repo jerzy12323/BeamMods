@@ -1021,6 +1021,32 @@ body {
 .main-nav a { font-size: 13px; }
 .mod-card-stats { font-size: 13px; }
 
+/* Give the download count a little more emphasis than the secondary stats. */
+.mod-card-stats span:first-child {
+  color: var(--orange);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Center the card statistics in their dedicated row instead of pinning them to its top. */
+.mod-card-stats {
+  min-height: 42px;
+  align-items: center;
+  align-content: center;
+  padding: 0 2px;
+  line-height: 1.25;
+}
+
+/* Make the signed-in username easier to read without enlarging the whole header. */
+.account-button {
+  font-size: 15px;
+  letter-spacing: 0;
+}
+.account-button #account-label {
+  font-size: 15px;
+  line-height: 1;
+}
+
 /* Final alignment overrides */
 .notifications-button { border-radius: 50%; }
 .notifications-wrap { margin-right: 18px; }
@@ -2445,3 +2471,14 @@ transform: translateY(2px); }
 .notifications-wrap { margin-right: 18px; }
 .main-nav a { font-size: 13px; }
 .mod-card-stats { font-size: 13px; }
+
+/* Keep Downloads neutral; the orange accent belongs to the selected gallery view. */
+.mod-card-stats span:first-child {
+  color: #aebdca;
+  font-size: 14px;
+  font-weight: 700;
+}
+.view-button.selected {
+  color: var(--orange);
+  background: rgba(255, 112, 67, .1);
+}
