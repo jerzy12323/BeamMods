@@ -601,7 +601,7 @@ function renderMods() {
       if (sortSelect.value === "rating") return Number(b.rating) - Number(a.rating);
       return a.age - b.age;
     });
-  const pageCount = 3;
+  const pageCount = Math.max(1, Math.min(6, Math.ceil(visible.length / modsPerPage)));
   currentLibraryPage = Math.min(currentLibraryPage, pageCount);
   const pageStart = (currentLibraryPage - 1) * modsPerPage;
   const pageMods = visible.slice(pageStart, pageStart + modsPerPage);
@@ -627,7 +627,8 @@ function renderMods() {
   pagination.hidden = false;
   pagination.querySelectorAll(".page-button").forEach((button) => {
     const page = Number(button.dataset.page);
-    button.disabled = false;
+    button.hidden = page > pageCount;
+    button.disabled = page > pageCount;
     button.classList.toggle("active", page === currentLibraryPage);
   });
 }
@@ -1270,8 +1271,15 @@ document.querySelector("#profile-image-input").addEventListener("change", async 
     showActionNotice("Profile photo unavailable", "Choose a PNG, JPG or WEBP image to update your profile photo.");
     return;
   }
-  askConfirmation("Use this profile photo?", "This image will replace your current profile photo on this device.", async () => {
+  askConfirmation("Use this profile photo?", "This image will replace your current profile photo.", async () => {
     currentUser.avatar = await fileToDataUrl(image);
+    if (remoteMode) {
+      await apiRequest("/api/me", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: currentUser.username, avatar: currentUser.avatar })
+      });
+    }
     const users = getUsers();
     const userIndex = users.findIndex((user) => user.username.toLowerCase() === currentUser.username.toLowerCase());
     if (userIndex >= 0) users[userIndex] = { ...users[userIndex], avatar: currentUser.avatar };
@@ -1284,8 +1292,15 @@ document.querySelector("#profile-image-input").addEventListener("change", async 
 });
 document.querySelector("#profile-image-reset").addEventListener("click", () => {
   if (!currentUser?.avatar) return;
-  askConfirmation("Remove profile photo?", "Your profile will return to the default avatar with your first initial.", () => {
+  askConfirmation("Remove profile photo?", "Your profile will return to the default avatar with your first initial.", async () => {
     currentUser.avatar = "";
+    if (remoteMode) {
+      await apiRequest("/api/me", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: currentUser.username, avatar: "" })
+      });
+    }
     const users = getUsers();
     const userIndex = users.findIndex((user) => user.username.toLowerCase() === currentUser.username.toLowerCase());
     if (userIndex >= 0) users[userIndex] = { ...users[userIndex], avatar: "" };
@@ -1522,7 +1537,7 @@ authForm.addEventListener("submit", async (event) => {
       currentUser = {
         username: result.username,
         email: result.email || "",
-        avatar: "",
+        avatar: result.avatar || "",
         createdAt: result.created_at || new Date().toISOString()
       };
       localStorage.setItem("beammods-current-user", JSON.stringify(currentUser));
@@ -2202,7 +2217,7 @@ async function syncServerSession() {
   currentUser = {
     username: user.username,
     email: user.email,
-    avatar: "",
+    avatar: user.avatar || "",
     createdAt: user.created_at
   };
   localStorage.setItem("beammods-current-user", JSON.stringify(currentUser));

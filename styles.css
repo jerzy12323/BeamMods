@@ -1762,9 +1762,28 @@ body { font-size: 15px; }
   padding: 5px 9px;
   background: rgba(8,15,25,.34);
 }
+.hero-copy h1 em {
+  color: #ff9a7b;
+  text-shadow: 0 0 34px rgba(255,103,70,.16);
+}
+.hero-art {
+  will-change: background-position;
+}
+.mod-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 520px;
+}
 @media (max-width: 800px) {
   .hero-copy { padding-top: 70px; padding-bottom: 58px; }
   .hero-art { border-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-art,
+  .hero-art::before,
+  .mod-card {
+    animation: none;
+    transition: none;
+  }
 }
 @media (max-width: 520px) {
   .hero { min-height: 0; }

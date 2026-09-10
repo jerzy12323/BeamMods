@@ -191,7 +191,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS users (
               id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, email TEXT UNIQUE NOT NULL,
               password_hash TEXT NOT NULL, is_owner INTEGER NOT NULL DEFAULT 0, is_active INTEGER NOT NULL DEFAULT 0,
-              activation_token TEXT, created_at TEXT NOT NULL);
+              activation_token TEXT, avatar TEXT, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS mods (
               id INTEGER PRIMARY KEY, owner_id INTEGER NOT NULL REFERENCES users(id),
               name TEXT NOT NULL, category TEXT NOT NULL, author TEXT NOT NULL, description TEXT NOT NULL,
@@ -226,7 +226,7 @@ def init_db():
             schema = """
             CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, email TEXT UNIQUE NOT NULL,
               password_hash TEXT NOT NULL, is_owner INTEGER NOT NULL DEFAULT 0, is_active INTEGER NOT NULL DEFAULT 0,
-              activation_token TEXT, created_at TEXT NOT NULL);
+              activation_token TEXT, avatar TEXT, created_at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS mods (id SERIAL PRIMARY KEY, owner_id INTEGER NOT NULL REFERENCES users(id), name TEXT NOT NULL,
               category TEXT NOT NULL, author TEXT NOT NULL, description TEXT NOT NULL, version TEXT NOT NULL, configs INTEGER NOT NULL DEFAULT 0,
               image_path TEXT, image_paths TEXT, download_url TEXT, approved INTEGER NOT NULL DEFAULT 0, download_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
@@ -268,6 +268,8 @@ def init_db():
                 connection.execute("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 0")
             if "activation_token" not in user_columns:
                 connection.execute("ALTER TABLE users ADD COLUMN activation_token TEXT")
+            if "avatar" not in user_columns:
+                connection.execute("ALTER TABLE users ADD COLUMN avatar TEXT")
             if "reset_token" not in user_columns:
                 connection.execute("ALTER TABLE users ADD COLUMN reset_token TEXT")
             if "reset_expires_at" not in user_columns:
@@ -287,7 +289,7 @@ def init_db():
             column = execute(connection, "SELECT 1 FROM information_schema.columns WHERE table_name='mods' AND column_name='image_paths'").fetchone()
             if not column:
                 execute(connection, "ALTER TABLE mods ADD COLUMN image_paths TEXT")
-            for name, definition in (("is_active", "INTEGER NOT NULL DEFAULT 0"), ("activation_token", "TEXT")):
+            for name, definition in (("is_active", "INTEGER NOT NULL DEFAULT 0"), ("activation_token", "TEXT"), ("avatar", "TEXT")):
                 column = execute(connection, "SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name=?", (name,)).fetchone()
                 if not column:
                     execute(connection, f"ALTER TABLE users ADD COLUMN {name} {definition}")
@@ -398,6 +400,7 @@ class Handler(BaseHTTPRequestHandler):
             "id": user["id"],
             "username": user["username"],
             "email": user["email"],
+            "avatar": user.get("avatar", ""),
             "is_owner": int(is_owner_user(user)),
             "created_at": user["created_at"],
         }
@@ -598,10 +601,10 @@ class Handler(BaseHTTPRequestHandler):
                     password = secrets.token_urlsafe(32)
                     owner = username.lower() == OWNER_USERNAME or email == OWNER_EMAIL
                     activation_token = secrets.token_urlsafe(32)
-                    statement = "INSERT INTO users(username,email,password_hash,is_owner,is_active,activation_token,created_at) VALUES(?,?,?,?,?,?,?)"
+                    statement = "INSERT INTO users(username,email,password_hash,is_owner,is_active,activation_token,avatar,created_at) VALUES(?,?,?,?,?,?,?,?)"
                     if not isinstance(connection, sqlite3.Connection):
                         statement += " RETURNING id"
-                    cursor = execute(connection, statement, (username, email, password_hash(password), int(owner), 0, activation_token, now()))
+                    cursor = execute(connection, statement, (username, email, password_hash(password), int(owner), 0, activation_token, "", now()))
                     user_id = inserted_id(connection, cursor)
                     created_account = True
                     activation_url = f"{PUBLIC_URL}/?activation={quote(activation_token)}"
@@ -708,6 +711,9 @@ class Handler(BaseHTTPRequestHandler):
             if parsed.path == "/api/auth/register":
                 data = self.read_json()
                 username = str(data.get("username", "")).strip()
+                avatar = data.get("avatar")
+                if avatar is not None and (not isinstance(avatar, str) or len(avatar) > 4 * 1024 * 1024):
+                    return self.send_json(400, {"error": "Profile image is too large."})
                 password = str(data.get("password", ""))
                 email = str(data.get("email", "")).strip()
                 if not re.fullmatch(r"[A-Za-z0-9_-]{3,24}", username):
@@ -727,7 +733,7 @@ class Handler(BaseHTTPRequestHandler):
                     if not isinstance(connection, sqlite3.Connection):
                         statement += " RETURNING id"
                     cursor = execute(connection, statement,
-                                     (username, email, password_hash(password), int(owner), 0, activation_token, now()))
+                                     (username, email, password_hash(password), int(owner), 0, activation_token, "", now()))
                     uid = inserted_id(connection, cursor)
                     connection.commit()
                     activation_url = f"{PUBLIC_URL}/?activation={quote(activation_token)}"
@@ -961,6 +967,9 @@ class Handler(BaseHTTPRequestHandler):
                     if existing:
                         return self.send_json(409, {"error": "That username is already taken"})
                     execute(c, "UPDATE users SET username=? WHERE id=?", (username, user["id"]))
+                    if avatar is not None:
+                        execute(c, "UPDATE users SET avatar=? WHERE id=?", (avatar, user["id"]))
+                    c.commit()
                 username_changed = username.lower() != str(old_username).lower()
                 email_error = None
                 if username_changed:
