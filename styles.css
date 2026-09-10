@@ -1177,27 +1177,26 @@ body { font-size: 15px; }
   display: inline-flex;
   min-height: 28px;
   align-items: center;
-  border: 1px solid rgba(184,210,232,.2);
-  border-radius: 8px;
-  padding: 5px 9px;
-  color: #dce8f0;
-  background: rgba(8,20,34,.72);
-  box-shadow: 0 5px 14px rgba(2,8,15,.18);
+  border: 1px solid rgba(255,103,70,.25);
+  border-radius: 999px;
+  padding: 8px 10px;
+  color: #c4d0d9;
+  background: rgba(255,103,70,.07);
+  box-shadow: none;
   font-family: "Space Grotesk", sans-serif;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: .02em;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
   white-space: nowrap;
-  backdrop-filter: blur(6px);
 }
 .mod-tech span:last-child {
-  border-color: rgba(255,179,93,.34);
-  color: #ffc27e;
-  background: rgba(76,45,31,.72);
+  border-color: rgba(255,179,93,.28);
+  color: #ffb35d;
+  background: rgba(255,179,93,.08);
 }
 @media (max-width: 620px) {
   .mod-tech { right: 9px; bottom: 9px; left: 9px; gap: 5px; }
-  .mod-tech span { min-height: 25px; padding: 4px 7px; font-size: 9px; }
+  .mod-tech span { min-height: 0; padding: 8px 9px; font-size: 11px; }
 }
 .details-gallery button::after { color: #e9f1f5; font-family: "Space Grotesk", sans-serif; font-size: 11px; }
 .notifications-heading .eyebrow { font-size: 11px; }
