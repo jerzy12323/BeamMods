@@ -1135,6 +1135,12 @@ const securityClose = document.querySelector("#security-close");
 const uploadConfirmation = document.querySelector("#upload-confirmation");
 const uploadConfirmationText = document.querySelector("#upload-confirmation-text");
 const confirmModal = document.querySelector("#confirm-modal");
+const avatarCropModal = document.querySelector("#avatar-crop-modal");
+const avatarCropImage = document.querySelector("#avatar-crop-image");
+const avatarCropZoom = document.querySelector("#avatar-crop-zoom");
+const avatarCropX = document.querySelector("#avatar-crop-x");
+const avatarCropY = document.querySelector("#avatar-crop-y");
+let avatarCropFile = null;
 const bugModal = document.querySelector("#bug-modal");
 const dmcaModal = document.querySelector("#dmca-modal");
 const bugForm = document.querySelector("#bug-form");
@@ -1278,9 +1284,33 @@ document.querySelector("#profile-image-input").addEventListener("change", async 
     showActionNotice("Profile photo unavailable", "Choose an image smaller than 12 MB.");
     return;
   }
-  askConfirmation("Use this profile photo?", "This image will replace your current profile photo.", async () => {
-    try {
-      const avatar = await compressAvatarImage(image);
+  avatarCropFile = image;
+  avatarCropImage.src = URL.createObjectURL(image);
+  avatarCropModal.hidden = false;
+  updateAvatarCropPreview();
+  event.target.value = "";
+});
+function updateAvatarCropPreview() {
+  avatarCropImage.style.transform = `scale(${avatarCropZoom.value})`;
+  avatarCropImage.style.objectPosition = `${avatarCropX.value}% ${avatarCropY.value}%`;
+}
+[avatarCropZoom, avatarCropX, avatarCropY].forEach((control) => control.addEventListener("input", updateAvatarCropPreview));
+function closeAvatarCrop() {
+  avatarCropModal.hidden = true;
+  if (avatarCropImage.src.startsWith("blob:")) URL.revokeObjectURL(avatarCropImage.src);
+  avatarCropImage.removeAttribute("src");
+  avatarCropFile = null;
+}
+document.querySelector("#avatar-crop-close").addEventListener("click", closeAvatarCrop);
+document.querySelector("#avatar-crop-cancel").addEventListener("click", closeAvatarCrop);
+document.querySelector("#avatar-crop-save").addEventListener("click", async () => {
+  if (!avatarCropFile) return;
+  try {
+      const avatar = await compressAvatarImage(avatarCropFile, {
+        zoom: Number(avatarCropZoom.value),
+        x: Number(avatarCropX.value),
+        y: Number(avatarCropY.value)
+      });
       if (remoteMode) {
         await apiRequest("/api/me", {
           method: "PUT",
@@ -1296,11 +1326,10 @@ document.querySelector("#profile-image-input").addEventListener("change", async 
       localStorage.setItem("beammods-current-user", JSON.stringify(currentUser));
       updateDashboardAvatar();
       updateAccountButton();
-    } catch (error) {
-      showActionNotice("Profile photo unavailable", error.message);
-    }
-  });
-  event.target.value = "";
+      closeAvatarCrop();
+  } catch (error) {
+    showActionNotice("Profile photo unavailable", error.message);
+  }
 });
 document.querySelector("#profile-image-reset").addEventListener("click", () => {
   if (!currentUser?.avatar) return;
@@ -2088,7 +2117,7 @@ function fileToDataUrl(file) {
   });
 }
 
-function compressAvatarImage(file) {
+function compressAvatarImage(file, crop = { zoom: 1, x: 50, y: 50 }) {
   return new Promise((resolve, reject) => {
     const image = new Image();
     const reader = new FileReader();
@@ -2103,10 +2132,10 @@ function compressAvatarImage(file) {
           reject(new Error("Your browser could not prepare this profile photo."));
           return;
         }
-        const scale = Math.max(size / image.naturalWidth, size / image.naturalHeight);
+        const scale = Math.max(size / image.naturalWidth, size / image.naturalHeight) * crop.zoom;
         const width = image.naturalWidth * scale;
         const height = image.naturalHeight * scale;
-        context.drawImage(image, (size - width) / 2, (size - height) / 2, width, height);
+        context.drawImage(image, (size - width) * crop.x / 100, (size - height) * crop.y / 100, width, height);
         resolve(canvas.toDataURL("image/webp", 0.82));
       };
       image.onerror = () => reject(new Error("Could not read the selected profile photo."));

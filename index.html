@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260910-31">
+  <link rel="stylesheet" href="styles.css?v=20260910-32">
   <script>
     try {
       if (localStorage.getItem("beammods-view") && localStorage.getItem("beammods-current-user")) {
@@ -416,6 +416,18 @@
       <div class="confirm-actions"><button class="back-button" id="confirm-cancel">Cancel</button><button class="submit-button" id="confirm-accept">Confirm</button></div>
     </section>
   </div>
+  <div class="modal-backdrop" id="avatar-crop-modal" hidden>
+    <section class="modal avatar-crop-modal" role="dialog" aria-modal="true" aria-labelledby="avatar-crop-title">
+      <button class="modal-close" id="avatar-crop-close" type="button" aria-label="Close">×</button>
+      <p class="eyebrow">Profile photo</p>
+      <h2 id="avatar-crop-title">Frame your <em>avatar.</em></h2>
+      <div class="avatar-crop-preview"><img id="avatar-crop-image" alt="Profile photo preview"></div>
+      <label class="crop-control">Zoom<input id="avatar-crop-zoom" type="range" min="1" max="2.5" step=".01" value="1"></label>
+      <label class="crop-control">Horizontal position<input id="avatar-crop-x" type="range" min="0" max="100" value="50"></label>
+      <label class="crop-control">Vertical position<input id="avatar-crop-y" type="range" min="0" max="100" value="50"></label>
+      <div class="confirm-actions"><button class="back-button" id="avatar-crop-cancel" type="button">Cancel</button><button class="submit-button" id="avatar-crop-save" type="button">Use photo <span>↗</span></button></div>
+    </section>
+  </div>
   <div class="modal-backdrop" id="bug-modal" hidden>
     <section class="modal" role="dialog" aria-modal="true" aria-labelledby="bug-title">
       <button class="modal-close" data-close-bug aria-label="Close">×</button>
@@ -439,6 +451,6 @@
       <p class="form-note">Send complete notices to <a href="mailto:beammodshub@gmail.com">beammodshub@gmail.com</a> with the subject line “DMCA takedown request”. False or incomplete claims may delay review.</p>
     </section>
   </div>
-  <script src="app.js?v=20260910-16"></script>
+  <script src="app.js?v=20260910-17"></script>
 </body>
 </html>
