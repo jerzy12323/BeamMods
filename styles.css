@@ -1927,3 +1927,59 @@ body { font-size: 15px; }
   .discord-button { height: 40px; margin-right: 8px; padding: 0 12px; font-size: 13px; }
   .discord-logo { width: 19px; height: 19px; }
 }
+
+/* Motorsport garage direction: practical hierarchy, restrained surfaces and less decorative noise. */
+:root {
+  --orange: #f36b45;
+  --acid: #e7603d;
+  --paper: #101b2a;
+  --panel: #17263a;
+  --steel: #9eb2c2;
+}
+body {
+  color: #e8eef2;
+  background: linear-gradient(180deg, rgba(22,40,61,.42), transparent 360px), #0b1420;
+}
+.site-header {
+  height: 76px;
+  border-bottom-color: rgba(174,199,220,.16);
+  background: rgba(10,20,32,.94);
+  backdrop-filter: blur(14px);
+}
+.brand { letter-spacing: -.055em; }
+.brand-mark { width: 32px; height: 32px; border-radius: 7px; box-shadow: 0 5px 16px rgba(243,107,69,.18); }
+.main-nav { margin-left: 72px; gap: 28px; }
+.main-nav a { padding: 30px 0; color: #9fb1c0; }
+.discord-button, .account-button, .upload-button, .notifications-button { border-radius: 7px; }
+.discord-button { background: #18283d; }
+.account-button { background: rgba(243,107,69,.12); }
+.upload-button { box-shadow: 0 8px 18px rgba(243,107,69,.14); }
+.build-notice { background: #142337; }
+.hero { min-height: 620px; grid-template-columns: minmax(420px, .9fr) minmax(0, 1.1fr); border-color: rgba(174,199,220,.14); }
+.hero-copy { padding: 82px 7vw 74px; background: linear-gradient(135deg, rgba(243,107,69,.08), transparent 35%), linear-gradient(145deg, #0b1726, #102137); }
+.hero-copy .eyebrow { border: 0; border-left: 2px solid var(--orange); border-radius: 0; padding: 4px 0 4px 11px; color: #f3a184; background: transparent; }
+.hero-copy h1 { max-width: 560px; font-size: clamp(62px, 7.2vw, 116px); letter-spacing: -.075em; }
+.hero-description { max-width: 470px; margin-top: 26px; color: #b8c7d2; line-height: 1.65; }
+.hero-cta { width: 226px; margin-top: 8px; border-radius: 6px; background: #1a3049; }
+.hero-metrics { margin-top: 48px; }
+.hero-art { border-left-color: rgba(174,199,220,.16); box-shadow: inset 30px 0 70px rgba(3,10,18,.36), inset 0 -90px 120px rgba(3,10,18,.22); }
+.content-section { padding-top: 86px; background: #0d1928; }
+.discover-panel { border: 1px solid rgba(174,199,220,.14); border-radius: 9px; background: #16263b; box-shadow: 0 16px 36px rgba(2,8,15,.2); }
+.section-heading h2 { letter-spacing: -.065em; }
+.toolbar { border: 1px solid rgba(174,199,220,.12); border-radius: 8px; background: #14253a; }
+.mod-card { border-color: rgba(174,199,220,.16); border-radius: 12px; background: #17283d; box-shadow: 0 12px 26px rgba(2,8,15,.2); }
+.mod-card:hover, .mod-card:focus-visible { border-color: rgba(243,107,69,.58); box-shadow: 0 18px 34px rgba(2,8,15,.3); }
+.mod-cover { height: 246px; }
+.mod-info { padding-top: 20px; }
+.mod-info h3 { letter-spacing: -.035em; }
+.card-details-button { border: 1px solid rgba(174,199,220,.18); border-radius: 7px; background: #294562; }
+.card-details-button:hover { background: #355977; }
+.library-pagination { margin-top: 38px; }
+.page-button { border-radius: 7px; }
+.home-cta { background: #14263b; }
+.site-footer { border-top-color: rgba(174,199,220,.14); background: #0b1522; }
+@media (max-width: 800px) {
+  .site-header { height: auto; min-height: 76px; }
+  .main-nav { margin-left: 24px; }
+  .hero-copy { padding: 68px 7vw 58px; }
+}
