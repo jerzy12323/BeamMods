@@ -433,8 +433,8 @@ h2 { font-size: clamp(43px, 5.2vw, 70px); }
 }
 .mods-grid { display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap: 22px; }
 .mods-grid.list-view { grid-template-columns: 1fr; gap: 14px; }
-.mods-grid.list-view .mod-card { display: grid; grid-template-columns: 270px minmax(0, 1fr) minmax(120px, 160px) 160px; align-items: center; min-width: 0; padding: 0 18px 0 0; }
-.mods-grid.list-view .mod-cover { width: 270px; height: 184px; margin: 0; background-position: center; background-size: cover; background-repeat: no-repeat; }
+.mods-grid.list-view .mod-card { display: grid; grid-template-columns: 300px minmax(0, 1fr) minmax(120px, 160px) 160px; align-items: center; min-width: 0; padding: 0 18px 0 0; }
+.mods-grid.list-view .mod-cover { width: 300px; height: 196px; margin: 0; background-position: center; background-size: cover; background-repeat: no-repeat; }
 .mods-grid.list-view .mod-info { min-width: 0; align-self: stretch; align-items: center; border-bottom: 0; padding: 18px 20px; }
 .mods-grid.list-view .mod-info h3 { min-width: 0; overflow-wrap: anywhere; }
 .mods-grid.list-view .mod-status { align-self: center; text-align: center; }
@@ -2508,7 +2508,7 @@ transform: translateY(2px); }
 .mods-grid.list-view .mod-tech span {
   min-width: 0;
   flex: 0 1 auto;
-  padding: 5px 7px;
+  padding: 5px 8px;
   font-size: 9px;
   letter-spacing: -.02em;
   white-space: nowrap;
