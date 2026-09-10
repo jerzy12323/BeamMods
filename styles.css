@@ -986,6 +986,107 @@ body {
   .home-cta { padding: 76px 20px; }
   .site-footer { align-items: flex-start; flex-direction: column; padding: 25px 20px; }
 }
+
+/* Keep the hero image open and photographic; the copy gets contrast from a local fade. */
+.site-header {
+  height: 82px;
+  padding: 0 6vw;
+  background: rgba(14, 20, 29, .9);
+}
+.discord-button {
+  margin-right: 12px;
+  border-color: rgba(139, 126, 255, .72);
+  color: #eef0ff;
+  background: rgba(88, 75, 190, .22);
+}
+.discord-button span { color: #a99dff; }
+.discord-button:hover { border-color: #b5aaff; background: rgba(88, 75, 190, .52); }
+.account-button {
+  margin-right: 12px;
+  border-color: var(--orange);
+  color: #fff3ed;
+  background: rgba(240, 91, 61, .16);
+}
+.account-button:hover { color: var(--ink); background: var(--orange); }
+.upload-button { padding: 13px 18px; color: #fff4ef; background: var(--acid); }
+
+/* Restore the compact proportions from the previous layout. */
+.site-header {
+  height: 82px;
+  gap: 12px;
+  padding: 0 6vw;
+}
+.main-nav {
+  gap: 24px;
+  margin-left: 34px;
+}
+.discord-button,
+.account-button,
+.upload-button,
+.notifications-button {
+  border-radius: 7px;
+}
+.discord-button {
+  margin-left: auto;
+  margin-right: 8px;
+  padding: 9px 13px;
+}
+.account-button {
+  margin-right: 8px;
+  padding: 8px 14px 8px 9px;
+}
+.account-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+.upload-button {
+  padding: 0 18px;
+}
+.notifications-wrap {
+  margin-left: 8px;
+  margin-right: 0;
+}
+.hero {
+  min-height: 620px;
+  grid-template-columns: minmax(420px, .9fr) minmax(0, 1.1fr);
+}
+.hero-copy {
+  padding: 72px 6vw 64px;
+}
+.hero-copy h1 {
+  max-width: 560px;
+  font-size: clamp(62px, 7.2vw, 116px);
+}
+.discover-panel {
+  margin-bottom: 68px;
+  border-radius: 9px;
+}
+.filter {
+  border-radius: 7px;
+}
+.sort-select {
+  border-radius: 7px;
+}
+
+.hero::before {
+  background: linear-gradient(90deg, rgba(8, 12, 14, .84) 0%, rgba(8, 12, 14, .5) 34%, rgba(8, 12, 14, .04) 72%), linear-gradient(0deg, rgba(8, 12, 14, .25), transparent 48%);
+}
+.hero-art {
+  filter: none;
+  background: url("bmw-m4-g82.png") center 57% / cover no-repeat;
+  box-shadow: inset 18px 0 40px rgba(16, 18, 18, .08);
+}
+.hero-art::before {
+  background:
+    linear-gradient(115deg, rgba(7, 16, 28, .04), transparent 42%, rgba(8, 15, 25, .12)),
+    radial-gradient(circle at 72% 25%, rgba(255, 103, 70, .08), transparent 27%),
+    linear-gradient(180deg, rgba(8, 15, 25, .02), transparent 58%, rgba(8, 15, 25, .2));
+}
+.hero-art::after {
+  background: linear-gradient(90deg, rgba(8, 12, 14, .16), transparent 55%), linear-gradient(0deg, rgba(8, 12, 14, .18), transparent 43%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .04), inset 0 -70px 80px rgba(5, 12, 21, .08);
+}
 .report-card { display: block; }
 .report-card summary { display: flex; align-items: center; justify-content: space-between; gap: 18px; cursor: pointer; list-style: none; }
 .report-card summary::-webkit-details-marker { display: none; }
@@ -2215,3 +2316,39 @@ transform: translateY(2px); }
   .main-nav { margin-left: 24px; }
   .hero-copy { padding: 68px 7vw 58px; }
 }
+
+/* Final hero correction: keep the BMW artwork bright and let the copy fade locally. */
+.hero::before {
+  background: linear-gradient(90deg, rgba(8, 12, 14, .78) 0%, rgba(8, 12, 14, .38) 34%, rgba(8, 12, 14, .02) 72%), linear-gradient(0deg, rgba(8, 12, 14, .18), transparent 48%);
+}
+.hero-art {
+  filter: none;
+  background: url("bmw-m4-g82.png") center 57% / cover no-repeat;
+  box-shadow: inset 18px 0 40px rgba(16, 18, 18, .06);
+}
+.hero-art::before {
+  background: linear-gradient(115deg, rgba(7, 16, 28, .03), transparent 42%, rgba(8, 15, 25, .1)), radial-gradient(circle at 72% 25%, rgba(255, 103, 70, .06), transparent 27%), linear-gradient(180deg, rgba(8, 15, 25, .01), transparent 58%, rgba(8, 15, 25, .16));
+}
+.hero-art::after {
+  background: linear-gradient(90deg, rgba(8, 12, 14, .12), transparent 55%), linear-gradient(0deg, rgba(8, 12, 14, .12), transparent 43%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .04), inset 0 -70px 80px rgba(5, 12, 21, .05);
+}
+.site-header {
+  height: 82px;
+  padding: 0 6vw;
+  background: rgba(14, 20, 29, .9);
+}
+.discord-button {
+  margin-right: 12px;
+  border-color: rgba(139, 126, 255, .72);
+  color: #eef0ff;
+  background: rgba(88, 75, 190, .22);
+}
+.discord-button span { color: #a99dff; }
+.account-button {
+  margin-right: 12px;
+  border-color: var(--orange);
+  color: #fff3ed;
+  background: rgba(240, 91, 61, .16);
+}
+.upload-button { padding: 13px 18px; color: #fff4ef; background: var(--acid); }
