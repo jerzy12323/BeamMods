@@ -1961,7 +1961,19 @@ body {
 .hero-copy h1 { max-width: 560px; font-size: clamp(62px, 7.2vw, 116px); letter-spacing: -.075em; }
 .hero-description { max-width: 470px; margin-top: 26px; color: #b8c7d2; line-height: 1.65; }
 .hero-cta { width: 226px; margin-top: 8px; border-radius: 6px; background: #1a3049; }
-.hero-metrics { margin-top: 48px; }
+.hero-metrics { align-items: center;
+margin-top: 48px;
+}
+.hero-metrics div {
+align-content: center;
+justify-items: start;
+}
+.hero-metrics div:last-child {
+align-self: center;
+}
+.hero-metrics div:last-child strong,
+.hero-metrics div:last-child span {
+transform: translateY(2px); }
 .hero-art { border-left-color: rgba(174,199,220,.16); box-shadow: inset 30px 0 70px rgba(3,10,18,.36), inset 0 -90px 120px rgba(3,10,18,.22); }
 .content-section { padding-top: 86px; background: #0d1928; }
 .discover-panel { border: 1px solid rgba(174,199,220,.14); border-radius: 9px; background: #16263b; box-shadow: 0 16px 36px rgba(2,8,15,.2); }

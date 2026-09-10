@@ -2132,10 +2132,10 @@ function compressAvatarImage(file, crop = { zoom: 1, x: 50, y: 50 }) {
           reject(new Error("Your browser could not prepare this profile photo."));
           return;
         }
-        const scale = Math.max(size / image.naturalWidth, size / image.naturalHeight) * crop.zoom;
-        const width = image.naturalWidth * scale;
-        const height = image.naturalHeight * scale;
-        context.drawImage(image, (size - width) * crop.x / 100, (size - height) * crop.y / 100, width, height);
+        const sourceSize = Math.min(image.naturalWidth, image.naturalHeight) / crop.zoom;
+        const sourceX = (image.naturalWidth - sourceSize) * crop.x / 100;
+        const sourceY = (image.naturalHeight - sourceSize) * crop.y / 100;
+        context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, size, size);
         resolve(canvas.toDataURL("image/webp", 0.82));
       };
       image.onerror = () => reject(new Error("Could not read the selected profile photo."));
