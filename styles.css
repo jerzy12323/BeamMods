@@ -2486,7 +2486,7 @@ transform: translateY(2px); }
 
 .discover-panel {
   width: 100%;
-  max-width: 1080px;
+  max-width: 1000px;
   box-sizing: border-box;
   margin-right: auto;
   margin-left: auto;
@@ -2498,4 +2498,28 @@ transform: translateY(2px); }
 .avatar {
   image-rendering: auto;
   background-repeat: no-repeat;
+}
+
+@media (max-width: 620px) {
+  .mods-grid.list-view .mod-card {
+    grid-template-columns: 110px minmax(0, 1fr);
+  }
+  .mods-grid.list-view .mod-cover {
+    width: 110px;
+    height: 132px;
+  }
+  .mods-grid.list-view .mod-info {
+    padding: 12px;
+  }
+  .mods-grid.list-view .mod-info h3 {
+    font-size: 17px;
+  }
+  .mods-grid.list-view .mod-card-stats {
+    grid-column: 2;
+    padding: 0 12px 12px;
+  }
+  .mods-grid.list-view .card-details-button {
+    width: calc(100% - 24px);
+    margin: 0 12px 12px;
+  }
 }
