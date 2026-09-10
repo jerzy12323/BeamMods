@@ -433,12 +433,13 @@ h2 { font-size: clamp(43px, 5.2vw, 70px); }
 }
 .mods-grid { display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap: 22px; }
 .mods-grid.list-view { grid-template-columns: 1fr; gap: 14px; }
-.mods-grid.list-view .mod-card { display: grid; grid-template-columns: 250px minmax(260px, 1fr) max-content 190px; align-items: center; padding: 0 18px 0 0; }
+.mods-grid.list-view .mod-card { display: grid; grid-template-columns: 250px minmax(0, 1fr) minmax(120px, 160px) 160px; align-items: center; min-width: 0; padding: 0 18px 0 0; }
 .mods-grid.list-view .mod-cover { width: 250px; height: 170px; margin: 0; }
-.mods-grid.list-view .mod-info { align-self: stretch; align-items: center; border-bottom: 0; padding: 18px 20px; }
+.mods-grid.list-view .mod-info { min-width: 0; align-self: stretch; align-items: center; border-bottom: 0; padding: 18px 20px; }
+.mods-grid.list-view .mod-info h3 { min-width: 0; overflow-wrap: anywhere; }
 .mods-grid.list-view .mod-status { align-self: center; text-align: center; }
-.mods-grid.list-view .mod-card-stats { align-self: center; min-width: 0; flex-wrap: nowrap; gap: 12px; padding: 0 20px; font-size: 11px; white-space: nowrap; }
-.mods-grid.list-view .card-details-button { width: 190px; margin: 0; }
+.mods-grid.list-view .mod-card-stats { align-self: center; min-width: 0; flex-wrap: wrap; gap: 6px 10px; padding: 0 14px; font-size: 11px; white-space: normal; }
+.mods-grid.list-view .card-details-button { width: 160px; margin: 0; }
 @media (max-width: 620px) {
   .mods-grid.list-view .mod-card { grid-template-columns: 125px 1fr; padding-right: 0; }
   .mods-grid.list-view .mod-cover { width: 125px; height: 150px; }
@@ -2480,5 +2481,21 @@ transform: translateY(2px); }
 }
 .view-button.selected {
   color: var(--orange);
-  background: rgba(255, 112, 67, .1);
+  background: #1b2b42;
+}
+
+.discover-panel {
+  width: 100%;
+  max-width: 1080px;
+  box-sizing: border-box;
+  margin-right: auto;
+  margin-left: auto;
+}
+.view-toggle {
+  background: #16263b;
+}
+.account-avatar,
+.avatar {
+  image-rendering: auto;
+  background-repeat: no-repeat;
 }

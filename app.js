@@ -2123,7 +2123,7 @@ function compressAvatarImage(file, crop = { zoom: 1, x: 50, y: 50 }) {
     const reader = new FileReader();
     reader.addEventListener("load", () => {
       image.onload = () => {
-        const size = 256;
+        const size = 512;
         const canvas = document.createElement("canvas");
         canvas.width = size;
         canvas.height = size;
@@ -2136,7 +2136,7 @@ function compressAvatarImage(file, crop = { zoom: 1, x: 50, y: 50 }) {
         const sourceX = (image.naturalWidth - sourceSize) * crop.x / 100;
         const sourceY = (image.naturalHeight - sourceSize) * crop.y / 100;
         context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, size, size);
-        resolve(canvas.toDataURL("image/webp", 0.82));
+        resolve(canvas.toDataURL("image/webp", 0.92));
       };
       image.onerror = () => reject(new Error("Could not read the selected profile photo."));
       image.src = reader.result;
