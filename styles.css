@@ -2486,8 +2486,14 @@ transform: translateY(2px); }
 
 .discover-panel {
   width: 100%;
-  max-width: 1000px;
+  max-width: 900px;
   box-sizing: border-box;
+  margin-right: auto;
+  margin-left: auto;
+}
+.mods-grid.list-view {
+  width: 100%;
+  max-width: 860px;
   margin-right: auto;
   margin-left: auto;
 }
@@ -2501,6 +2507,9 @@ transform: translateY(2px); }
 }
 
 @media (max-width: 620px) {
+  .mods-grid.list-view {
+    max-width: none;
+  }
   .mods-grid.list-view .mod-card {
     grid-template-columns: 110px minmax(0, 1fr);
   }

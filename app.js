@@ -2123,7 +2123,7 @@ function compressAvatarImage(file, crop = { zoom: 1, x: 50, y: 50 }) {
     const reader = new FileReader();
     reader.addEventListener("load", () => {
       image.onload = () => {
-        const size = 512;
+        const size = 1024;
         const canvas = document.createElement("canvas");
         canvas.width = size;
         canvas.height = size;
