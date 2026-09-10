@@ -1273,9 +1273,14 @@ document.querySelector("#profile-image-input").addEventListener("change", async 
     showActionNotice("Profile photo unavailable", "Choose a PNG, JPG or WEBP image to update your profile photo.");
     return;
   }
+  if (image.size > 12 * 1024 * 1024) {
+    event.target.value = "";
+    showActionNotice("Profile photo unavailable", "Choose an image smaller than 12 MB.");
+    return;
+  }
   askConfirmation("Use this profile photo?", "This image will replace your current profile photo.", async () => {
     try {
-      const avatar = await fileToDataUrl(image);
+      const avatar = await compressAvatarImage(image);
       if (remoteMode) {
         await apiRequest("/api/me", {
           method: "PUT",
@@ -1300,21 +1305,25 @@ document.querySelector("#profile-image-input").addEventListener("change", async 
 document.querySelector("#profile-image-reset").addEventListener("click", () => {
   if (!currentUser?.avatar) return;
   askConfirmation("Remove profile photo?", "Your profile will return to the default avatar with your first initial.", async () => {
-    currentUser.avatar = "";
-    if (remoteMode) {
-      await apiRequest("/api/me", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: currentUser.username, avatar: "" })
-      });
+    try {
+      if (remoteMode) {
+        await apiRequest("/api/me", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: currentUser.username, avatar: "" })
+        });
+      }
+      currentUser.avatar = "";
+      const users = getUsers();
+      const userIndex = users.findIndex((user) => user.username.toLowerCase() === currentUser.username.toLowerCase());
+      if (userIndex >= 0) users[userIndex] = { ...users[userIndex], avatar: "" };
+      localStorage.setItem("beammods-users", JSON.stringify(users));
+      localStorage.setItem("beammods-current-user", JSON.stringify(currentUser));
+      updateDashboardAvatar();
+      updateAccountButton();
+    } catch (error) {
+      showActionNotice("Profile photo unavailable", error.message);
     }
-    const users = getUsers();
-    const userIndex = users.findIndex((user) => user.username.toLowerCase() === currentUser.username.toLowerCase());
-    if (userIndex >= 0) users[userIndex] = { ...users[userIndex], avatar: "" };
-    localStorage.setItem("beammods-users", JSON.stringify(users));
-    localStorage.setItem("beammods-current-user", JSON.stringify(currentUser));
-    updateDashboardAvatar();
-    updateAccountButton();
   });
 });
 document.querySelectorAll("[data-open-upload]").forEach((button) => {
@@ -2075,6 +2084,35 @@ function fileToDataUrl(file) {
     const reader = new FileReader();
     reader.addEventListener("load", () => resolve(reader.result));
     reader.addEventListener("error", () => reject(new Error("Could not read preview image.")));
+    reader.readAsDataURL(file);
+  });
+}
+
+function compressAvatarImage(file) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      image.onload = () => {
+        const size = 256;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const context = canvas.getContext("2d");
+        if (!context) {
+          reject(new Error("Your browser could not prepare this profile photo."));
+          return;
+        }
+        const scale = Math.max(size / image.naturalWidth, size / image.naturalHeight);
+        const width = image.naturalWidth * scale;
+        const height = image.naturalHeight * scale;
+        context.drawImage(image, (size - width) / 2, (size - height) / 2, width, height);
+        resolve(canvas.toDataURL("image/webp", 0.82));
+      };
+      image.onerror = () => reject(new Error("Could not read the selected profile photo."));
+      image.src = reader.result;
+    });
+    reader.addEventListener("error", () => reject(new Error("Could not read the selected profile photo.")));
     reader.readAsDataURL(file);
   });
 }

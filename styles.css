@@ -863,12 +863,11 @@ body { background: radial-gradient(circle at 80% -10%, rgba(54, 81, 112, .22), t
 .description-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .description-list li { position: relative; padding-left: 28px; }
 .description-list li::before { position: absolute; top: .1em; left: 0; color: #8ee6a4; content: "✓"; font-weight: 700; }
-.details-extra { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0 0 20px; }
-.details-extra { grid-template-columns: repeat(4, 1fr); }
-.details-extra div { border: 1px solid rgba(168,185,198,.16); border-radius: 10px; padding: 12px; background: rgba(255,255,255,.035); }
+.details-extra { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0 0 20px; }
+.details-extra div { display: flex; min-width: 0; min-height: 82px; flex-direction: column; border: 1px solid rgba(168,185,198,.16); border-radius: 10px; padding: 12px; background: rgba(255,255,255,.035); }
 .details-extra span, .details-extra strong { display: block; }
 .details-extra span { margin-bottom: 6px; color: #91a0ab; font-family: "DM Mono", monospace; font-size: 9px; text-transform: uppercase; }
-.details-extra strong { color: #eaf1f3; font-size: 11px; line-height: 1.35; }
+.details-extra strong { display: flex; min-height: 30px; align-items: center; color: #eaf1f3; font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; }
 .details-stats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 28px; color: #c4d0d9; font-family: "DM Mono", monospace; font-size: 11px; }
 .details-tech span, .details-stats span { border: 1px solid rgba(255,103,70,.25); border-radius: 999px; padding: 8px 10px; background: rgba(255,103,70,.07); }
 .details-stats .like-button { border: 1px solid rgba(255,179,93,.28); border-radius: 999px; padding: 8px 10px; color: #ffb35d; background: rgba(255,179,93,.08); cursor: pointer; font: inherit; }
@@ -889,8 +888,7 @@ body { background: radial-gradient(circle at 80% -10%, rgba(54, 81, 112, .22), t
 .avatar-actions > *:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0,0,0,.18); }
 .avatar-reset { border: 1px solid rgba(164,188,212,.22); border-radius: 999px; padding: 9px 11px; color: #aebdca; background: transparent; cursor: pointer; font-size: 10px; }
 .avatar-reset:hover { border-color: var(--orange); color: #fff; }
-.avatar, .account-avatar { transition: background-image .3s ease, transform .3s ease, box-shadow .3s ease; }
-.avatar.has-image, .account-avatar.has-image { animation: avatarPop .42s cubic-bezier(.2,.8,.2,1) both; }
+.avatar, .account-avatar { transition: transform .18s ease, box-shadow .18s ease; }
 @keyframes avatarPop { from { opacity: .4; transform: scale(.82); } to { opacity: 1; transform: scale(1); } }
 .library-enter .hero { animation: heroReveal .7s cubic-bezier(.2,.75,.25,1) both; }
 .library-enter #mods { animation: libraryRise .65s .08s cubic-bezier(.2,.75,.25,1) both; }
@@ -1166,6 +1164,41 @@ body { font-size: 15px; }
 .details-extra span { font-family: "Space Grotesk", sans-serif; font-size: 11px; font-weight: 600; letter-spacing: .04em; }
 .details-extra strong { font-size: 14px; }
 .details-stats { font-family: "Space Grotesk", sans-serif; font-size: 13px; }
+.mod-tech {
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  gap: 7px;
+  align-items: center;
+  border-top: 0;
+  padding-top: 0;
+}
+.mod-tech span {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  border: 1px solid rgba(184,210,232,.2);
+  border-radius: 8px;
+  padding: 5px 9px;
+  color: #dce8f0;
+  background: rgba(8,20,34,.72);
+  box-shadow: 0 5px 14px rgba(2,8,15,.18);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  white-space: nowrap;
+  backdrop-filter: blur(6px);
+}
+.mod-tech span:last-child {
+  border-color: rgba(255,179,93,.34);
+  color: #ffc27e;
+  background: rgba(76,45,31,.72);
+}
+@media (max-width: 620px) {
+  .mod-tech { right: 9px; bottom: 9px; left: 9px; gap: 5px; }
+  .mod-tech span { min-height: 25px; padding: 4px 7px; font-size: 9px; }
+}
 .details-gallery button::after { color: #e9f1f5; font-family: "Space Grotesk", sans-serif; font-size: 11px; }
 .notifications-heading .eyebrow { font-size: 11px; }
 .notifications-heading button { font-size: 12px; }
