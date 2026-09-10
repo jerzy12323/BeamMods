@@ -1015,6 +1015,48 @@ body {
 .mod-tech { flex-wrap: nowrap; justify-content: flex-start; gap: 6px; }
 .mod-tech span { min-height: 27px; padding: 4px 8px; font-size: 9px; }
 
+/* Final alignment overrides */
+.notifications-button { border-radius: 50%; }
+.notifications-wrap { margin-right: 18px; }
+.main-nav a { font-size: 13px; }
+.mod-card-stats { font-size: 13px; }
+
+/* Final alignment overrides */
+.notifications-button { border-radius: 50%; }
+.notifications-wrap { margin-right: 18px; }
+.main-nav a { font-size: 13px; }
+.mod-card-stats { font-size: 13px; }
+
+/* Small alignment and readability pass requested for the header and mod cards. */
+.notifications-wrap {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  margin: 0 18px 0 8px;
+}
+.notifications-button {
+  width: 42px;
+  height: 42px;
+  margin: 0;
+  place-items: center;
+  border-radius: 50%;
+  line-height: 1;
+}
+.main-nav a {
+  padding-top: 30px;
+  padding-bottom: 30px;
+  font-size: 13px;
+}
+.mod-card-stats {
+  gap: 14px;
+  font-size: 13px;
+}
+.mods-grid.list-view .mod-card-stats {
+  font-size: 13px;
+}
+
 /* Match the compact card metadata and right-aligned header from the earlier layout. */
 .mod-tech {
   right: 12px;
@@ -2397,3 +2439,9 @@ transform: translateY(2px); }
 .site-header { padding-right: 0; }
 .mod-tech { flex-wrap: nowrap; justify-content: flex-start; gap: 6px; }
 .mod-tech span { min-height: 27px; padding: 4px 8px; font-size: 9px; }
+
+/* Final alignment overrides */
+.notifications-button { border-radius: 50%; }
+.notifications-wrap { margin-right: 18px; }
+.main-nav a { font-size: 13px; }
+.mod-card-stats { font-size: 13px; }
