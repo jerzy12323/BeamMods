@@ -711,9 +711,6 @@ class Handler(BaseHTTPRequestHandler):
             if parsed.path == "/api/auth/register":
                 data = self.read_json()
                 username = str(data.get("username", "")).strip()
-                avatar = data.get("avatar")
-                if avatar is not None and (not isinstance(avatar, str) or len(avatar) > 4 * 1024 * 1024):
-                    return self.send_json(400, {"error": "Profile image is too large."})
                 password = str(data.get("password", ""))
                 email = str(data.get("email", "")).strip()
                 if not re.fullmatch(r"[A-Za-z0-9_-]{3,24}", username):
@@ -958,6 +955,9 @@ class Handler(BaseHTTPRequestHandler):
             if self.path.split("?", 1)[0] == "/api/me":
                 data = self.read_json()
                 username = str(data.get("username", "")).strip()
+                avatar = data.get("avatar")
+                if avatar is not None and (not isinstance(avatar, str) or len(avatar) > 4 * 1024 * 1024):
+                    return self.send_json(400, {"error": "Profile image is too large."})
                 if not 3 <= len(username) <= 24 or not all(character.isalnum() or character in "_-" for character in username):
                     return self.send_json(400, {"error": "Username must be 3-24 characters and use only letters, numbers, _ or -"})
                 old_username = user["username"]

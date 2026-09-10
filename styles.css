@@ -9,6 +9,7 @@
 
 * { box-sizing: border-box; }
 *[hidden] { display: none !important; }
+.app-loading main { visibility: hidden; }
 html { scroll-behavior: smooth; scrollbar-color: #5d7892 #101b2a; scrollbar-width: thin; }
 ::-webkit-scrollbar { width: 11px; height: 11px; }
 ::-webkit-scrollbar-track { background: #101b2a; }
@@ -1772,6 +1773,9 @@ body { font-size: 15px; }
 .mod-card {
   content-visibility: auto;
   contain-intrinsic-size: 0 520px;
+}
+.mods-grid.is-paging .mod-card {
+  animation: none;
 }
 @media (max-width: 800px) {
   .hero-copy { padding-top: 70px; padding-bottom: 58px; }

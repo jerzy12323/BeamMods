@@ -601,7 +601,7 @@ function renderMods() {
       if (sortSelect.value === "rating") return Number(b.rating) - Number(a.rating);
       return a.age - b.age;
     });
-  const pageCount = Math.max(1, Math.min(6, Math.ceil(visible.length / modsPerPage)));
+  const pageCount = 6;
   currentLibraryPage = Math.min(currentLibraryPage, pageCount);
   const pageStart = (currentLibraryPage - 1) * modsPerPage;
   const pageMods = visible.slice(pageStart, pageStart + modsPerPage);
@@ -627,8 +627,8 @@ function renderMods() {
   pagination.hidden = false;
   pagination.querySelectorAll(".page-button").forEach((button) => {
     const page = Number(button.dataset.page);
-    button.hidden = page > pageCount;
-    button.disabled = page > pageCount;
+    button.hidden = false;
+    button.disabled = false;
     button.classList.toggle("active", page === currentLibraryPage);
   });
 }
@@ -1122,8 +1122,10 @@ pagination.addEventListener("click", (event) => {
   const button = event.target.closest(".page-button");
   if (!button || button.disabled) return;
   currentLibraryPage = Number(button.dataset.page);
+  grid.classList.add("is-paging");
   renderMods();
-  document.querySelector("#mods").scrollIntoView({ behavior: "smooth", block: "start" });
+  requestAnimationFrame(() => grid.classList.remove("is-paging"));
+  document.querySelector("#mods").scrollIntoView({ behavior: "auto", block: "start" });
 });
 
 const uploadModal = document.querySelector("#upload-modal");
@@ -1272,21 +1274,26 @@ document.querySelector("#profile-image-input").addEventListener("change", async 
     return;
   }
   askConfirmation("Use this profile photo?", "This image will replace your current profile photo.", async () => {
-    currentUser.avatar = await fileToDataUrl(image);
-    if (remoteMode) {
-      await apiRequest("/api/me", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: currentUser.username, avatar: currentUser.avatar })
-      });
+    try {
+      const avatar = await fileToDataUrl(image);
+      if (remoteMode) {
+        await apiRequest("/api/me", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: currentUser.username, avatar })
+        });
+      }
+      currentUser.avatar = avatar;
+      const users = getUsers();
+      const userIndex = users.findIndex((user) => user.username.toLowerCase() === currentUser.username.toLowerCase());
+      if (userIndex >= 0) users[userIndex] = { ...users[userIndex], avatar };
+      localStorage.setItem("beammods-users", JSON.stringify(users));
+      localStorage.setItem("beammods-current-user", JSON.stringify(currentUser));
+      updateDashboardAvatar();
+      updateAccountButton();
+    } catch (error) {
+      showActionNotice("Profile photo unavailable", error.message);
     }
-    const users = getUsers();
-    const userIndex = users.findIndex((user) => user.username.toLowerCase() === currentUser.username.toLowerCase());
-    if (userIndex >= 0) users[userIndex] = { ...users[userIndex], avatar: currentUser.avatar };
-    localStorage.setItem("beammods-users", JSON.stringify(users));
-    localStorage.setItem("beammods-current-user", JSON.stringify(currentUser));
-    updateDashboardAvatar();
-    updateAccountButton();
   });
   event.target.value = "";
 });
@@ -2236,6 +2243,9 @@ Promise.resolve()
   .catch((error) => {
     console.warn("Community sync unavailable:", error.message);
     if (!hasAuthLink) restoreSavedView();
+  })
+  .finally(() => {
+    document.documentElement.classList.remove("app-loading");
   });
 updateAccountButton();
 updateAuthForm();
