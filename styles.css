@@ -1010,6 +1010,48 @@ body {
 .account-button:hover { color: var(--ink); background: var(--orange); }
 .upload-button { padding: 13px 18px; color: #fff4ef; background: var(--acid); }
 
+/* Compact reference layout: metadata stays on one bottom row and actions reach the edge. */
+.site-header { padding-right: 0; }
+.mod-tech { flex-wrap: nowrap; justify-content: flex-start; gap: 6px; }
+.mod-tech span { min-height: 27px; padding: 4px 8px; font-size: 9px; }
+
+/* Match the compact card metadata and right-aligned header from the earlier layout. */
+.mod-tech {
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  gap: 6px;
+}
+.mod-tech span {
+  min-height: 27px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 9px;
+}
+.site-header {
+  padding-right: 0;
+}
+.discord-button {
+  margin-left: auto;
+}
+
+/* Last cascade layer for the compact reference proportions. */
+.site-header {
+  padding-right: 0;
+}
+.mod-tech {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  gap: 6px;
+}
+.mod-tech span {
+  min-height: 27px;
+  padding: 4px 8px;
+  font-size: 9px;
+}
+
 /* Restore the compact proportions from the previous layout. */
 .site-header {
   height: 82px;
@@ -2352,3 +2394,6 @@ transform: translateY(2px); }
   background: rgba(240, 91, 61, .16);
 }
 .upload-button { padding: 13px 18px; color: #fff4ef; background: var(--acid); }
+.site-header { padding-right: 0; }
+.mod-tech { flex-wrap: nowrap; justify-content: flex-start; gap: 6px; }
+.mod-tech span { min-height: 27px; padding: 4px 8px; font-size: 9px; }
