@@ -2491,9 +2491,21 @@ transform: translateY(2px); }
   margin-right: auto;
   margin-left: auto;
 }
-.mods-grid.list-view { width: 100%; max-width: none; }
-.mod-tech { justify-content: flex-start; gap: 4px; }
-.mod-tech span { min-width: 0; padding: 4px 6px; font-size: 8px; }
+.mods-grid.list-view {
+  width: 100%;
+  max-width: 860px;
+  margin-right: auto;
+  margin-left: 0;
+}
+.mods-grid.list-view .mod-tech {
+  justify-content: flex-start;
+  gap: 4px;
+}
+.mods-grid.list-view .mod-tech span {
+  min-width: 0;
+  padding: 4px 6px;
+  font-size: 8px;
+}
 .view-toggle {
   background: #16263b;
 }
@@ -2504,9 +2516,7 @@ transform: translateY(2px); }
 }
 
 @media (max-width: 620px) {
-  .mods-grid.list-view {
-    max-width: none;
-  }
+  .mods-grid.list-view { max-width: none; }
   .mods-grid.list-view .mod-card {
     grid-template-columns: 110px minmax(0, 1fr);
   }
