@@ -2493,18 +2493,25 @@ transform: translateY(2px); }
 }
 .mods-grid.list-view {
   width: 100%;
-  max-width: 860px;
+  max-width: 1160px;
   margin-right: auto;
-  margin-left: 0;
+  margin-left: auto;
 }
 .mods-grid.list-view .mod-tech {
   justify-content: flex-start;
-  gap: 4px;
+  gap: 3px;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  overflow: visible;
 }
 .mods-grid.list-view .mod-tech span {
   min-width: 0;
-  padding: 4px 6px;
-  font-size: 8px;
+  flex: 0 1 auto;
+  padding: 4px 5px;
+  font-size: 7px;
+  letter-spacing: -.03em;
+  white-space: nowrap;
 }
 .view-toggle {
   background: #16263b;
