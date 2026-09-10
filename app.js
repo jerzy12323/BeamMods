@@ -2132,6 +2132,8 @@ function compressAvatarImage(file, crop = { zoom: 1, x: 50, y: 50 }) {
           reject(new Error("Your browser could not prepare this profile photo."));
           return;
         }
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = "high";
         const sourceSize = Math.min(image.naturalWidth, image.naturalHeight) / crop.zoom;
         const sourceX = (image.naturalWidth - sourceSize) * crop.x / 100;
         const sourceY = (image.naturalHeight - sourceSize) * crop.y / 100;
