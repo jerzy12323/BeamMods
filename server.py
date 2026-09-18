@@ -139,10 +139,13 @@ def send_email(recipient, subject, body, html=None):
     if html:
         message.add_alternative(html, subtype="html")
     port = int(os.environ.get("SMTP_PORT", "587"))
-    with smtplib.SMTP(host, port, timeout=20) as smtp:
-        smtp.starttls()
-        smtp.login(username, password)
-        smtp.send_message(message)
+    try:
+        with smtplib.SMTP(host, port, timeout=20) as smtp:
+            smtp.starttls()
+            smtp.login(username, password)
+            smtp.send_message(message)
+    except (OSError, smtplib.SMTPException) as error:
+        raise RuntimeError(f"Could not send the activation email: {error}") from error
 
 
 def notify_discord_new_mod(mod):
@@ -726,15 +729,24 @@ class Handler(BaseHTTPRequestHandler):
                     existing = execute(connection, "SELECT 1 FROM users WHERE lower(username)=lower(?) OR lower(email)=lower(?)",
                                        (username, email)).fetchone()
                     if existing:
-                        return self.send_json(409, {"error": "That username or email is already registered"})
+                        existing_active = existing["is_active"] if isinstance(existing, dict) else existing["is_active"]
+                        if existing_active:
+                            return self.send_json(409, {"error": "That username or email is already registered"})
+                        existing_id = existing["id"] if isinstance(existing, dict) else existing["id"]
+                        execute(connection, "UPDATE users SET username=?, email=?, password_hash=?, activation_token=? WHERE id=?",
+                                (username, email, password_hash(password), activation_token, existing_id))
+                    else:
+                        existing_id = None
                     owner = username.lower() == OWNER_USERNAME or email.lower() == OWNER_EMAIL
-                    statement = "INSERT INTO users(username,email,password_hash,is_owner,is_active,activation_token,created_at) VALUES(?,?,?,?,?,?,?)"
-                    if not isinstance(connection, sqlite3.Connection):
-                        statement += " RETURNING id"
-                    cursor = execute(connection, statement,
-                                     (username, email, password_hash(password), int(owner), int(active), activation_token, now()))
-                    uid = inserted_id(connection, cursor)
-                    connection.commit()
+                    if existing_id is None:
+                        statement = "INSERT INTO users(username,email,password_hash,is_owner,is_active,activation_token,created_at) VALUES(?,?,?,?,?,?,?)"
+                        if not isinstance(connection, sqlite3.Connection):
+                            statement += " RETURNING id"
+                        cursor = execute(connection, statement,
+                                         (username, email, password_hash(password), int(owner), int(active), activation_token, now()))
+                        uid = inserted_id(connection, cursor)
+                    else:
+                        uid = existing_id
                     activation_url = f"{PUBLIC_URL}/?activation={quote(activation_token)}"
                     username_display = username
                     username_html = escape(username_display)
@@ -764,6 +776,7 @@ class Handler(BaseHTTPRequestHandler):
   </div>
 </body>
 </html>""")
+                    connection.commit()
                 return self.send_json(201, {"username": username, "email": email, "is_owner": owner,
                                             "message": "Your account has been created successfully. Please check your inbox for the BeamMods activation email, then click the confirmation button to finish setting up your account."})
             if parsed.path == "/api/auth/forgot-password":
