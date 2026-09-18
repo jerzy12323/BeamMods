@@ -1566,14 +1566,12 @@ authForm.addEventListener("submit", async (event) => {
       ? { username, email: String(data.get("email") || "").trim(), password }
       : { identifier: username, password };
     try {
-      const response = await fetch(endpoint, {
+      const result = await apiRequest(endpoint, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Authentication failed.");
       if (authMode === "register") {
         showAuthMessage(result.message || "Registration received. Check your email to activate your account.", "success");
         authForm.reset();

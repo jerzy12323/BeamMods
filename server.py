@@ -600,6 +600,7 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     password = secrets.token_urlsafe(32)
                     owner = username.lower() == OWNER_USERNAME or email == OWNER_EMAIL
+                    active = False
                     activation_token = secrets.token_urlsafe(32)
                     statement = "INSERT INTO users(username,email,password_hash,is_owner,is_active,activation_token,avatar,created_at) VALUES(?,?,?,?,?,?,?,?)"
                     if not isinstance(connection, sqlite3.Connection):
@@ -719,6 +720,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send_json(400, {"error": "Password must be at least 8 characters"})
                 if "@" not in email or "." not in email.rsplit("@", 1)[-1]:
                     return self.send_json(400, {"error": "A valid email address is required"})
+                active = False
                 activation_token = secrets.token_urlsafe(32)
                 with db() as connection:
                     existing = execute(connection, "SELECT 1 FROM users WHERE lower(username)=lower(?) OR lower(email)=lower(?)",
@@ -730,7 +732,7 @@ class Handler(BaseHTTPRequestHandler):
                     if not isinstance(connection, sqlite3.Connection):
                         statement += " RETURNING id"
                     cursor = execute(connection, statement,
-                                     (username, email, password_hash(password), int(owner), 0, activation_token, "", now()))
+                                     (username, email, password_hash(password), int(owner), int(active), activation_token, now()))
                     uid = inserted_id(connection, cursor)
                     connection.commit()
                     activation_url = f"{PUBLIC_URL}/?activation={quote(activation_token)}"
@@ -839,7 +841,10 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send_json(401, {"error": "Invalid email or password"})
                 if not user["is_active"]:
                     return self.send_json(403, {"error": "Activate your account using the link sent to your email first."})
-                return self.send_json(200, dict(user), self.start_session(user["id"]))
+                safe_user = dict(user)
+                for field in ("password_hash", "activation_token", "reset_token", "reset_expires_at"):
+                    safe_user.pop(field, None)
+                return self.send_json(200, safe_user, self.start_session(user["id"]))
             if parsed.path == "/api/auth/logout":
                 self.clear_session()
                 return

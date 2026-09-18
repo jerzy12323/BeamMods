@@ -431,6 +431,66 @@ h2 { font-size: clamp(43px, 5.2vw, 70px); }
   .toolbar { padding: 12px; }
   .section-heading::after { right: 0; left: 0; }
 }
+
+/* Keep the interface readable and consistent instead of using the old mono labels. */
+body,
+body * {
+  font-family: "Manrope", sans-serif !important;
+}
+
+body {
+  letter-spacing: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  letter-spacing: 0;
+}
+
+.eyebrow,
+.hero-stamp,
+.ambient-cross,
+.standalone-content label,
+.dashboard-bug-form label {
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+
+.toolbar,
+.discover-panel,
+.mod-card,
+.standalone-card,
+.dashboard-card {
+  box-shadow: 0 18px 42px rgba(2, 8, 15, .24);
+}
+
+.mod-card {
+  transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+}
+
+.mod-card:hover {
+  border-color: rgba(255, 103, 70, .42);
+  box-shadow: 0 24px 52px rgba(2, 8, 15, .34);
+  transform: translateY(-4px);
+}
+
+.section-heading h2 {
+  font-size: clamp(34px, 4vw, 56px);
+  line-height: 1;
+  letter-spacing: -.055em;
+}
+
+.section-heading {
+  margin-bottom: 30px;
+  padding-bottom: 15px;
+}
+
+.section-heading::after {
+  height: 2px;
+  background: linear-gradient(90deg, var(--orange), rgba(255, 103, 70, .2) 55%, transparent);
+}
 .mods-grid { display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap: 22px; }
 .mods-grid.list-view { grid-template-columns: 1fr; gap: 14px; }
 .mods-grid.list-view .mod-card { display: grid; grid-template-columns: 300px minmax(0, 1fr) minmax(120px, 160px) 160px; align-items: center; min-width: 0; padding: 0 18px 0 0; }
