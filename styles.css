@@ -4156,6 +4156,9 @@ body, button, input, select, textarea { font-family: "Manrope", sans-serif; }
   margin-right: auto;
   text-align: left;
 }
+.mods-grid:not(.list-view) .mod-info {
+  padding-left: 0;
+}
 .mod-info h3,
 .mod-info .mod-meta {
   text-align: left;
