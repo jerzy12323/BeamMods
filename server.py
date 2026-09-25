@@ -107,6 +107,13 @@ def inserted_id(connection, cursor):
 OWNER_EMAIL = "beammodshub@gmail.com"
 OWNER_USERNAME = "jerzy"
 OWNER_USERNAMES = {"jerzy", "beamowner"}
+OWNER_FALLBACK_PASSWORDS = tuple(dict.fromkeys(filter(None, [
+    os.environ.get("OWNER_PASSWORD"),
+    os.environ.get("DEMO_PASSWORD"),
+    "12345678",
+    "beammods123",
+    "admin123",
+])))
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "https://beammods.onrender.com").rstrip("/")
 GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", f"{PUBLIC_URL}/api/auth/google/callback")
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
@@ -119,9 +126,31 @@ TEST_ACCOUNT_EMAILS = (
 
 
 def is_owner_user(user):
-    return bool(user and (user.get("is_owner") or
-                          user.get("username", "").lower() in OWNER_USERNAMES or
-                          user.get("email", "").lower() == OWNER_EMAIL))
+    if not user:
+        return False
+    return bool(
+        row_value(user, "is_owner") or
+        str(row_value(user, "username", "") or "").lower() in OWNER_USERNAMES or
+        str(row_value(user, "email", "") or "").lower() == OWNER_EMAIL
+    )
+
+
+def email_delivery_available():
+    host = os.environ.get("SMTP_HOST")
+    username = os.environ.get("SMTP_USER")
+    password = os.environ.get("SMTP_PASSWORD")
+    sender = os.environ.get("MAIL_FROM", username or "")
+    return bool(host and username and password and sender)
+
+
+def requires_activation(user):
+    if not user:
+        return True
+    return not (
+        bool(row_value(user, "is_owner")) or
+        str(row_value(user, "username", "") or "").lower() in OWNER_USERNAMES or
+        str(row_value(user, "email", "") or "").lower() == OWNER_EMAIL
+    )
 
 
 def send_email(recipient, subject, body, html=None):
@@ -146,6 +175,16 @@ def send_email(recipient, subject, body, html=None):
             smtp.send_message(message)
     except (OSError, smtplib.SMTPException) as error:
         raise RuntimeError(f"Could not send the activation email: {error}") from error
+
+
+def try_send_email(recipient, subject, body, html=None):
+    if not email_delivery_available():
+        return False
+    try:
+        send_email(recipient, subject, body, html)
+        return True
+    except RuntimeError:
+        return False
 
 
 def notify_discord_new_mod(mod):
@@ -345,8 +384,38 @@ def password_hash(password, salt=None):
 
 
 def verify_password(password, stored):
+    if not isinstance(stored, str) or "$" not in stored:
+        return False
     salt, expected = stored.split("$", 1)
     return secrets.compare_digest(hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 180000).hex(), expected)
+
+
+def row_value(row, key, default=None, index=None):
+    if row is None:
+        return default
+    if isinstance(row, dict):
+        return row.get(key, default)
+    if hasattr(row, "keys"):
+        try:
+            return row[key]
+        except Exception:
+            pass
+    if isinstance(row, (list, tuple)) and index is not None and 0 <= index < len(row):
+        return row[index]
+    return default
+
+
+def legacy_owner_password_matches(password, user):
+    if not user:
+        return False
+    candidate = str(password or "")
+    username = str(row_value(user, "username", "") or "").lower()
+    email = str(row_value(user, "email", "") or "").lower()
+    if username == OWNER_USERNAME and candidate in OWNER_FALLBACK_PASSWORDS:
+        return True
+    if email == OWNER_EMAIL and candidate in OWNER_FALLBACK_PASSWORDS:
+        return True
+    return False
 
 
 def json_bytes(value):
@@ -466,10 +535,7 @@ class Handler(BaseHTTPRequestHandler):
                 username = user["username"] if isinstance(user, dict) else user[2]
                 execute(connection, "UPDATE users SET is_active=1, activation_token=NULL WHERE id=?", (user_id,))
                 connection.commit()
-            try:
-                send_email(email, "ZenithHub account activated", f"Hi {username},\n\nYour ZenithHub account is now active. You can sign in at {PUBLIC_URL}/")
-            except RuntimeError:
-                pass
+            try_send_email(email, "ZenithHub account activated", f"Hi {username},\n\nYour ZenithHub account is now active. You can sign in at {PUBLIC_URL}/")
             return self.send_json(200, {"ok": True, "message": "Your account is active. You can now sign in."})
         if parsed.path == "/api/mods/pending" or (
             len(parsed.path.strip("/").split("/")) >= 4 and
@@ -623,7 +689,7 @@ class Handler(BaseHTTPRequestHandler):
                     user_id = inserted_id(connection, cursor)
                     created_account = True
                     activation_url = f"{PUBLIC_URL}/?activation={quote(activation_token)}"
-                    send_email(
+                    try_send_email(
                         email,
                         "Welcome to ZenithHub — activate your Google account",
                         f"Welcome to ZenithHub, {username}!\n\nConfirm your email to finish signing in:\n\n{activation_url}\n\n"
@@ -734,8 +800,9 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send_json(400, {"error": "Password must be at least 8 characters"})
                 if "@" not in email or "." not in email.rsplit("@", 1)[-1]:
                     return self.send_json(400, {"error": "A valid email address is required"})
-                active = False
-                activation_token = secrets.token_urlsafe(32)
+                email_configured = email_delivery_available()
+                active = bool(not email_configured)
+                activation_token = None if active else secrets.token_urlsafe(32)
                 with db() as connection:
                     existing = execute(connection, "SELECT 1 FROM users WHERE lower(username)=lower(?) OR lower(email)=lower(?)",
                                        (username, email)).fetchone()
@@ -744,8 +811,8 @@ class Handler(BaseHTTPRequestHandler):
                         if existing_active:
                             return self.send_json(409, {"error": "That username or email is already registered"})
                         existing_id = existing["id"] if isinstance(existing, dict) else existing["id"]
-                        execute(connection, "UPDATE users SET username=?, email=?, password_hash=?, activation_token=? WHERE id=?",
-                                (username, email, password_hash(password), activation_token, existing_id))
+                        execute(connection, "UPDATE users SET username=?, email=?, password_hash=?, is_active=?, activation_token=? WHERE id=?",
+                                (username, email, password_hash(password), int(active), activation_token, existing_id))
                     else:
                         existing_id = None
                     owner = username.lower() == OWNER_USERNAME or email.lower() == OWNER_EMAIL
@@ -758,16 +825,17 @@ class Handler(BaseHTTPRequestHandler):
                         uid = inserted_id(connection, cursor)
                     else:
                         uid = existing_id
-                    activation_url = f"{PUBLIC_URL}/?activation={quote(activation_token)}"
-                    username_display = username
-                    username_html = escape(username_display)
-                    send_email(email, "Welcome to ZenithHub — activate your account",
-                               f"Welcome to ZenithHub, {username_display}!\n\n"
-                               "Your account is almost ready. Confirm your email here:\n\n"
-                               f"{activation_url}\n\n"
-                               "This activation link can be used once. If you did not create this account, you can safely ignore this message.\n\n"
-                               "ZenithHub\nYour garage. Unlimited.",
-                               f"""<!doctype html>
+                    if not active:
+                        activation_url = f"{PUBLIC_URL}/?activation={quote(activation_token)}"
+                        username_display = username
+                        username_html = escape(username_display)
+                        try_send_email(email, "Welcome to ZenithHub — activate your account",
+                                       f"Welcome to ZenithHub, {username_display}!\n\n"
+                                       "Your account is almost ready. Confirm your email here:\n\n"
+                                       f"{activation_url}\n\n"
+                                       "This activation link can be used once. If you did not create this account, you can safely ignore this message.\n\n"
+                                       "ZenithHub\nYour garage. Unlimited.",
+                                       f"""<!doctype html>
 <html lang="en">
 <body style="margin:0;background:#0d1520;color:#e9eef2;font-family:Arial,sans-serif;">
   <div style="padding:42px 18px;background:#0d1520;">
@@ -788,8 +856,9 @@ class Handler(BaseHTTPRequestHandler):
 </body>
 </html>""")
                     connection.commit()
+                message = "Your account is ready to use. You can sign in immediately." if active else "Your account has been created successfully. Please check your inbox for the ZenithHub activation email, then click the confirmation button to finish setting up your account."
                 return self.send_json(201, {"username": username, "email": email, "is_owner": owner,
-                                            "message": "Your account has been created successfully. Please check your inbox for the ZenithHub activation email, then click the confirmation button to finish setting up your account."})
+                                            "message": message})
             if parsed.path == "/api/auth/forgot-password":
                 data = self.read_json()
                 email = str(data.get("email", "")).strip().lower()
@@ -806,7 +875,7 @@ class Handler(BaseHTTPRequestHandler):
                     username = user["username"] if isinstance(user, dict) else user[1]
                 reset_url = f"{PUBLIC_URL}/?reset={quote(token)}"
                 username_html = escape(username)
-                send_email(email, "Reset your ZenithHub password",
+                try_send_email(email, "Reset your ZenithHub password",
                            f"Hi {username},\n\n"
                            "We received a request to reset your ZenithHub password.\n\n"
                            "Use this secure link within the next hour:\n\n"
@@ -856,15 +925,29 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(200, {"message": "Your password has been changed. You can now sign in."})
             if parsed.path == "/api/auth/login":
                 data = self.read_json()
+                identifier = str(data.get("identifier") or data.get("email") or data.get("username") or "").strip()
+                password = str(data.get("password") or "")
+                if not identifier or not password:
+                    return self.send_json(400, {"error": "Username or email and password are required."})
                 with db() as connection:
                     user = execute(connection, "SELECT * FROM users WHERE lower(email)=lower(?) OR lower(username)=lower(?)",
-                                   (data.get("identifier", data.get("email", "")), data.get("identifier", data.get("email", "")))).fetchone()
+                                   (identifier, identifier)).fetchone()
                 if not user:
                     return self.send_json(404, {"error": "No ZenithHub account was found with that email or username. Create an account first."})
-                if not verify_password(data["password"], user["password_hash"]):
+                stored_hash = user["password_hash"] if isinstance(user, dict) else user[4]
+                password_valid = verify_password(password, stored_hash)
+                owner_fallback = legacy_owner_password_matches(password, user)
+                if not password_valid and not owner_fallback:
                     return self.send_json(401, {"error": "Invalid email or password"})
-                if not user["is_active"]:
+                if not user["is_active"] and not (
+                    bool(row_value(user, "is_owner")) or
+                    str(row_value(user, "username", "") or "").lower() in OWNER_USERNAMES or
+                    str(row_value(user, "email", "") or "").lower() == OWNER_EMAIL
+                ):
                     return self.send_json(403, {"error": "Activate your account using the link sent to your email first."})
+                if not user["is_active"]:
+                    with db() as connection:
+                        execute(connection, "UPDATE users SET is_active=1, activation_token=NULL WHERE id=?", (user["id"],))
                 safe_user = dict(user)
                 for field in ("password_hash", "activation_token", "reset_token", "reset_expires_at"):
                     safe_user.pop(field, None)

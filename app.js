@@ -294,7 +294,7 @@ function showDashboard(sync = true) {
   updateDashboardAvatar();
   document.querySelector("#dashboard-date").textContent = new Date(currentUser.createdAt || Date.now()).toLocaleDateString();
   const ownMods = mods.filter((mod) => mod.owner === currentUser.username);
-  document.querySelector("#dashboard-count").textContent = ownMods.length;
+  document.querySelector("#dashboard-count").textContent = ownMods.filter((mod) => mod.approved !== false && !mod.isTest).length;
   document.querySelector("#profile-mods").innerHTML = ownMods.length
     ? ownMods.map((mod, index) => `<div class="profile-mod"><div class="profile-mod-image" style="${mod.image ? `background-image:url('${escapeHtml(mod.image)}')` : ""}">${mod.image ? "" : escapeHtml(mod.icon)}</div><div class="profile-mod-main"><strong>${escapeHtml(mod.name)}</strong><span>${new Date(mod.publishedAt).toLocaleDateString()} · ${escapeHtml(mod.category)} · ${mod.approved === false ? "Pending owner approval" : "Approved"}</span></div><button class="text-button delete-mod" data-mod-id="${escapeHtml(mod.id || "")}" data-mod-index="${index}">Delete</button></div>`).join("")
     : "<p class='form-note'>You have not published any mods yet.</p>";
@@ -1844,6 +1844,7 @@ document.querySelector("#pending-mods").addEventListener("click", (event) => {
           Object.assign(mod, mapRemoteMod(approvedRemoteMod), { approved: true });
           await syncCommunityMods();
           await syncPendingMods();
+          await renderManagedMods();
         } catch (error) {
           showActionNotice("Approval failed", error.message);
           return;
@@ -1870,6 +1871,7 @@ document.querySelector("#pending-mods").addEventListener("click", (event) => {
       mods = mods.filter((item) => item !== mod);
       localStorage.setItem("beammods-mods", JSON.stringify(mods.filter((item) => !defaultMods.includes(item))));
       renderPendingMods();
+      await renderManagedMods();
       renderMods();
       showActionNotice("Mod deleted", `"${mod.name}" was removed successfully.`);
     });
