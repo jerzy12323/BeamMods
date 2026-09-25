@@ -104,7 +104,8 @@ def inserted_id(connection, cursor):
     return row["id"] if isinstance(row, dict) else row[0]
 
 
-OWNER_EMAIL = "beammodshub@gmail.com"
+OWNER_EMAIL = "zenithhubmods@gmail.com"
+DEFAULT_MAIL_FROM = "zenithhubmods@gmail.com"
 OWNER_USERNAME = "jerzy"
 OWNER_USERNAMES = {"jerzy", "beamowner"}
 OWNER_FALLBACK_PASSWORDS = tuple(dict.fromkeys(filter(None, [
@@ -139,7 +140,7 @@ def email_delivery_available():
     host = os.environ.get("SMTP_HOST")
     username = os.environ.get("SMTP_USER")
     password = os.environ.get("SMTP_PASSWORD")
-    sender = os.environ.get("MAIL_FROM", username or "")
+    sender = os.environ.get("MAIL_FROM", DEFAULT_MAIL_FROM)
     return bool(host and username and password and sender)
 
 
@@ -157,9 +158,9 @@ def send_email(recipient, subject, body, html=None):
     host = os.environ.get("SMTP_HOST")
     username = os.environ.get("SMTP_USER")
     password = os.environ.get("SMTP_PASSWORD")
-    sender = os.environ.get("MAIL_FROM", username or "")
+    sender = os.environ.get("MAIL_FROM", DEFAULT_MAIL_FROM)
     if not host or not username or not password or not sender:
-        raise RuntimeError("Email service is not configured. Add SMTP_HOST, SMTP_USER, SMTP_PASSWORD and MAIL_FROM in Render.")
+        raise RuntimeError("Email service is not configured. Add SMTP_HOST, SMTP_USER and SMTP_PASSWORD in Render.")
     message = EmailMessage()
     message["From"] = sender
     message["To"] = recipient

@@ -3937,3 +3937,20 @@ body, button, input, select, textarea { font-family: "Manrope", sans-serif; }
   .mods-grid { grid-template-columns: 1fr; gap: 14px; }
   .mod-cover { height: 230px; }
 }
+.mod-cover { height: 280px; }
+.mod-card-stats {
+  min-height: 44px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 0 0;
+}
+.mod-card-stats .mod-new-badge {
+  color: #9cf2d0;
+  font-weight: 800;
+}
+.card-details-button { margin-top: 12px; }
+@media (max-width: 620px) {
+  .mod-cover { height: 260px; }
+}

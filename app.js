@@ -207,7 +207,7 @@ localStorage.setItem("beammods-mods", JSON.stringify(mods));
 let authMode = "login";
 let currentUser = readStoredUser();
 const ownerUsernames = [localStorage.getItem("beammods-owner-username"), "jerzy", "beamowner", "testuser", "owner", "admin"].filter(Boolean).map((value) => value.toLowerCase());
-const ownerEmails = ["beammodshub@gmail.com"].map((value) => value.toLowerCase());
+const ownerEmails = ["zenithhubmods@gmail.com"].map((value) => value.toLowerCase());
 const authModal = document.querySelector("#auth-modal");
 const authForm = document.querySelector("#auth-form");
 const passwordResetModal = document.querySelector("#password-reset-modal");
@@ -643,7 +643,11 @@ function renderMods() {
   currentLibraryPage = Math.min(currentLibraryPage, pageCount);
   const pageStart = (currentLibraryPage - 1) * modsPerPage;
   const pageMods = visible.slice(pageStart, pageStart + modsPerPage);
-  grid.innerHTML = pageMods.map((mod) => `
+  grid.innerHTML = pageMods.map((mod) => {
+    const rating = Number.parseFloat(mod.rating);
+    const hasRating = Number.isFinite(rating) && rating > 0;
+    const isNew = isModNew(mod);
+    return `
     <article class="mod-card" data-mod-name="${escapeHtml(mod.name)}" tabindex="0" role="button" aria-label="View ${escapeHtml(mod.name)} details">
       <div class="mod-cover ${mod.cover} ${mod.image ? "has-image" : ""}" ${mod.image ? `style="background-image: linear-gradient(20deg, rgba(0,0,0,.25), transparent 62%), url('${escapeHtml(mod.image)}')"` : ""}>
         <span class="mod-badge">${escapeHtml(mod.category)}</span>
@@ -657,10 +661,11 @@ function renderMods() {
         </div>
         <span class="mod-status">${mod.isTest ? "TEST LISTING" : (mod.updatedAt ? "UPDATED RECENTLY" : "COMMUNITY UPLOAD")}</span>
       </div>
-      <div class="mod-card-stats"><span>↓ ${Number(mod.downloads || 0)} downloads</span><span>★ ${escapeHtml(mod.rating || "New")}</span><span>💬 ${getCommentStore()[mod.name]?.length || 0}</span></div>
+      <div class="mod-card-stats"><span>↓ ${Number(mod.downloads || 0)} downloads</span>${hasRating ? `<span>★ ${escapeHtml(mod.rating)}</span>` : ""}${isNew ? '<span class="mod-new-badge">★ New</span>' : ""}<span>💬 ${getCommentStore()[mod.name]?.length || 0}</span></div>
       <button class="card-details-button" type="button">View page &amp; details <span>→</span></button>
     </article>
-  `).join("");
+  `;
+  }).join("");
   emptyState.hidden = pageMods.length > 0;
   pagination.hidden = false;
   pagination.querySelectorAll(".page-button").forEach((button) => {
@@ -669,6 +674,12 @@ function renderMods() {
     button.disabled = false;
     button.classList.toggle("active", page === currentLibraryPage);
   });
+}
+
+function isModNew(mod, now = Date.now()) {
+  const publishedAt = Date.parse(String(mod.publishedAt || ""));
+  const age = now - publishedAt;
+  return Number.isFinite(publishedAt) && age >= 0 && age < 3 * 24 * 60 * 60 * 1000;
 }
 
 function updateCommunityModCount() {
