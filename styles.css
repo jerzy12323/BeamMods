@@ -4152,3 +4152,13 @@ body, button, input, select, textarea { font-family: "Manrope", sans-serif; }
   .mod-card-stats { justify-content: space-around; gap: 6px; }
   .mod-stat { gap: 5px; }
 }
+.mod-info > div {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.mod-info h3 {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

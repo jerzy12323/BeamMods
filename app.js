@@ -661,7 +661,7 @@ function renderMods() {
       </div>
       <div class="mod-info">
         <div>
-          <h3>${escapeHtml(formatDisplayName(mod.name))}</h3>
+          <h3 title="${escapeHtml(formatDisplayName(mod.name))}">${escapeHtml(formatDisplayName(mod.name))}</h3>
           <p class="mod-meta">By ${escapeHtml(formatDisplayName(mod.author))}</p>
         </div>
         <span class="mod-status">${mod.isTest ? "TEST LISTING" : (mod.updatedAt ? "UPDATED RECENTLY" : "COMMUNITY UPLOAD")}</span>

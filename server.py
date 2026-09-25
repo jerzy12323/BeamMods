@@ -226,7 +226,7 @@ def notify_discord_new_mod(mod):
     image_url = f"{PUBLIC_URL}/{mod['image_path']}" if mod.get("image_path") else None
     embed = {
         "title": "🆕 New mod submitted",
-        "description": f"**{mod['name']}** is now available on BeamModHub.",
+        "description": f"**{mod['name']}** is now available on ZenithHub.",
         "color": 0x5865F2,
         "fields": [
             {"name": "Author", "value": str(mod["author"]), "inline": True},
@@ -234,19 +234,19 @@ def notify_discord_new_mod(mod):
             {"name": "Version", "value": str(mod["version"]), "inline": True},
         ],
         "url": website_url,
-        "footer": {"text": "BeamModHub • New mod notification"},
+        "footer": {"text": "ZenithHub • New mod notification"},
     }
     if image_url:
         embed["image"] = {"url": image_url}
 
     payload = {
-        "username": "BeamModHub",
+        "username": "ZenithHub",
         "embeds": [embed],
     }
     request = urllib.request.Request(
         DISCORD_WEBHOOK_URL,
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json", "User-Agent": "BeamModHub/1.0"},
+        headers={"Content-Type": "application/json", "User-Agent": "ZenithHub/1.0"},
         method="POST",
     )
     try:
