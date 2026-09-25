@@ -32,7 +32,9 @@ from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
 ROOT = Path(__file__).resolve().parent
-DATA = Path(os.environ.get("DATA_DIR", str(ROOT / "data")))
+PERSISTENT_DATA = Path("/var/data")
+DEFAULT_DATA = PERSISTENT_DATA if PERSISTENT_DATA.is_dir() else ROOT / "data"
+DATA = Path(os.environ.get("DATA_DIR") or DEFAULT_DATA)
 UPLOADS = DATA / "uploads"
 DB_PATH = DATA / "beammods.sqlite3"
 MAX_UPLOAD = 95 * 1024 * 1024
@@ -42,6 +44,26 @@ PG = None
 
 DATA.mkdir(parents=True, exist_ok=True)
 UPLOADS.mkdir(parents=True, exist_ok=True)
+
+
+def migrate_legacy_uploads():
+    legacy_uploads = ROOT / "data" / "uploads"
+    if legacy_uploads.resolve() == UPLOADS.resolve() or not legacy_uploads.is_dir():
+        return
+    copied = 0
+    for source in legacy_uploads.iterdir():
+        if not source.is_file() or source.is_symlink():
+            continue
+        destination = UPLOADS / source.name
+        if destination.exists():
+            continue
+        shutil.copy2(source, destination)
+        copied += 1
+    if copied:
+        print(f"Migrated {copied} legacy upload files to persistent storage")
+
+
+migrate_legacy_uploads()
 
 
 def _postgres():
