@@ -581,7 +581,45 @@ function showOwnerPage() {
   syncPendingMods().catch((error) => {
     document.querySelector("#pending-mods").innerHTML = `<p class="form-note form-error">${escapeHtml(error.message)}</p>`;
   });
+  renderManagedMods();
   renderOwnerReports();
+}
+
+async function renderManagedMods() {
+  const target = document.querySelector("#managed-mods");
+  if (!target || !remoteMode || !isOwnerAccount()) return;
+  try {
+    const managed = await apiRequest("/api/mods/managed");
+    target.innerHTML = managed.length
+      ? managed.map((mod) => `<form class="managed-mod-row" data-mod-id="${escapeHtml(mod.id)}">
+          <div><strong>${escapeHtml(mod.name)}</strong><span>${escapeHtml(mod.username || mod.author)} · ${mod.approved ? "Published" : "Pending"}</span></div>
+          <input name="download_url" type="url" value="${escapeHtml(mod.download_url || "")}" placeholder="https://modsfire.com/...">
+          <button class="back-button" type="submit">Save link</button>
+        </form>`).join("")
+      : "<p class='form-note'>No mods have been submitted yet.</p>";
+    target.querySelectorAll(".managed-mod-row").forEach((form) => {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const button = form.querySelector("button");
+        button.disabled = true;
+        try {
+          const value = new FormData(form).get("download_url");
+          await apiRequest(`/api/mods/${form.dataset.modId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ download_url: String(value || "").trim() })
+          });
+          showActionNotice("Link updated", "The ModsFire download link has been saved.");
+        } catch (error) {
+          showRequestNotice(error);
+        } finally {
+          button.disabled = false;
+        }
+      });
+    });
+  } catch (error) {
+    target.innerHTML = `<p class="form-note form-error">${escapeHtml(error.message)}</p>`;
+  }
 }
 
 function renderMods() {
@@ -942,7 +980,7 @@ function openDetails(mod) {
   commentForm.onsubmit = async (event) => {
     event.preventDefault();
     if (!currentUser) {
-      showActionNotice("Sign in to comment", "Please sign in to your BeamMods account before posting in the community discussion.");
+      showActionNotice("Sign in to comment", "Please sign in to your ZenithHub account before posting in the community discussion.");
       return;
     }
     const data = new FormData(commentForm);
@@ -1501,7 +1539,7 @@ document.querySelector("#forgot-password-link").addEventListener("click", () => 
         message.className = "auth-message success";
       } else {
         const user = getUsers().find((item) => String(item.email).toLowerCase() === email.toLowerCase());
-        if (!user) throw new Error("No BeamMods account was found with that email.");
+        if (!user) throw new Error("No ZenithHub account was found with that email.");
         message.textContent = "Enter a new password below to update your local account.";
         message.className = "auth-message success";
         openPasswordReset(`local:${email}`);
@@ -1584,7 +1622,7 @@ authForm.addEventListener("submit", async (event) => {
         createdAt: result.created_at || new Date().toISOString()
       };
       localStorage.setItem("beammods-current-user", JSON.stringify(currentUser));
-      addNotification("Welcome back", "You have successfully signed in to your BeamMods account.", `login-${currentUser.email}-signin`);
+      addNotification("Welcome back", "You have successfully signed in to your ZenithHub account.", `login-${currentUser.email}-signin`);
       authForm.reset();
       authModal.hidden = true;
       updateAccountButton();
@@ -1678,7 +1716,7 @@ confirmModal.addEventListener("click", (event) => {
   if (event.target === confirmModal) confirmModal.hidden = true;
 });
 document.querySelector("#dashboard-sign-out").addEventListener("click", () => {
-  askConfirmation("Sign out of BeamMods?", "Your saved account and published mods will stay safe on this device.", () => {
+  askConfirmation("Sign out of ZenithHub?", "Your saved account and published mods will stay safe on this device.", () => {
     currentUser = null;
     localStorage.removeItem("beammods-current-user");
     showLibrary();
@@ -1856,14 +1894,14 @@ function askConfirmation(title, message, onConfirm) {
 }
 function showActionNotice(title, message) {
   askConfirmation(title, message, () => {});
-  confirmModal.querySelector(".eyebrow").textContent = "BeamMods update";
+  confirmModal.querySelector(".eyebrow").textContent = "ZenithHub update";
   document.querySelector("#confirm-cancel").hidden = true;
   document.querySelector("#confirm-accept").textContent = "Done";
 }
 function showRequestNotice(error) {
   const message = error?.message || "The request could not be completed. Please try again.";
   if (message.toLowerCase() === "sign in required") {
-    showActionNotice("Sign in to continue", "Please sign in to your BeamMods account before using this community feature.");
+    showActionNotice("Sign in to continue", "Please sign in to your ZenithHub account before using this community feature.");
     return;
   }
   showActionNotice("Action unavailable", message);
@@ -1923,11 +1961,11 @@ function showGoogleAuthResult() {
   authModal.hidden = false;
   updateAuthForm();
   showAuthMessage(pending
-    ? "Your Google registration is almost complete. Please check your inbox for the BeamMods activation email and click the confirmation button before signing in."
+    ? "Your Google registration is almost complete. Please check your inbox for the ZenithHub activation email and click the confirmation button before signing in."
     : error === "not_configured"
     ? "Google login is not configured on the server."
     : error === "activation_required"
-      ? "Your Google account was found, but it still needs email activation. Check your inbox and click the BeamMods activation link."
+      ? "Your Google account was found, but it still needs email activation. Check your inbox and click the ZenithHub activation link."
       : "Google login could not be completed. Try again.", pending ? "success" : "error");
   window.history.replaceState({}, document.title, window.location.pathname);
 }
@@ -1959,7 +1997,7 @@ form.addEventListener("submit", async (event) => {
   securityModal.hidden = false;
   securityModal.querySelector(".security-modal").classList.remove("is-complete");
   securityClose.hidden = true;
-  securityClose.textContent = "Continue to BeamMods";
+  securityClose.textContent = "Continue to ZenithHub";
   document.querySelector("#security-title").innerHTML = source === "link" ? "Checking your <em>link.</em>" : "Checking your <em>file.</em>";
   uploadStatus.textContent = "Checking your upload...";
   uploadStatus.className = "upload-status";

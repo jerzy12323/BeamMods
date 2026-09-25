@@ -1,4 +1,4 @@
-"""Small, dependency-free BeamMods API.
+"""Small, dependency-free ZenithHub API.
 
 If DATABASE_URL is set we use psycopg/psycopg2 when either is already installed.
 Without a driver (or when the connection fails) the service deliberately falls
@@ -360,7 +360,7 @@ def json_value(value):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "BeamMods/1.1"
+    server_version = "ZenithHub/1.1"
 
     def send_json(self, status, value, session_token=None):
         payload = json_bytes(value)
@@ -467,7 +467,7 @@ class Handler(BaseHTTPRequestHandler):
                 execute(connection, "UPDATE users SET is_active=1, activation_token=NULL WHERE id=?", (user_id,))
                 connection.commit()
             try:
-                send_email(email, "BeamMods account activated", f"Hi {username},\n\nYour BeamMods account is now active. You can sign in at {PUBLIC_URL}/")
+                send_email(email, "ZenithHub account activated", f"Hi {username},\n\nYour ZenithHub account is now active. You can sign in at {PUBLIC_URL}/")
             except RuntimeError:
                 pass
             return self.send_json(200, {"ok": True, "message": "Your account is active. You can now sign in."})
@@ -512,6 +512,17 @@ class Handler(BaseHTTPRequestHandler):
                     "FROM mods m JOIN users u ON u.id=m.owner_id LEFT JOIN ratings r ON r.mod_id=m.id "
                     "LEFT JOIN favorites f ON f.mod_id=m.id WHERE m.owner_id=? "
                     "GROUP BY m.id,u.username ORDER BY m.created_at DESC", (user["id"],)))
+            return self.send_json(200, result)
+        if parsed.path == "/api/mods/managed":
+            user = self.require_user()
+            if not user:
+                return
+            if not is_owner_user(user):
+                return self.send_json(403, {"error": "Owner access required"})
+            with db() as connection:
+                result = rows(execute(connection, "SELECT m.*, "
+                    "(SELECT original_filename FROM mod_versions WHERE mod_id=m.id ORDER BY id DESC LIMIT 1) AS original_filename, "
+                    "u.username FROM mods m JOIN users u ON u.id=m.owner_id ORDER BY m.created_at DESC"))
             return self.send_json(200, result)
         if parsed.path == "/api/mods":
             with db() as connection:
@@ -614,19 +625,19 @@ class Handler(BaseHTTPRequestHandler):
                     activation_url = f"{PUBLIC_URL}/?activation={quote(activation_token)}"
                     send_email(
                         email,
-                        "Welcome to BeamMods — activate your Google account",
-                        f"Welcome to BeamMods, {username}!\n\nConfirm your email to finish signing in:\n\n{activation_url}\n\n"
-                        "This link can be used once. If you did not create this account, you can ignore this email.\n\nBeamMods",
+                        "Welcome to ZenithHub — activate your Google account",
+                        f"Welcome to ZenithHub, {username}!\n\nConfirm your email to finish signing in:\n\n{activation_url}\n\n"
+                        "This link can be used once. If you did not create this account, you can ignore this email.\n\nZenithHub",
                         f"""<!doctype html><html lang="en"><body style="margin:0;background:#0d1520;color:#e9eef2;font-family:Arial,sans-serif;">
 <div style="padding:42px 18px;background:#0d1520;"><div style="max-width:540px;margin:0 auto;text-align:center;">
 <div style="font-size:28px;font-weight:800;color:#ff6746;">Beam<span style="color:#f5f7f8;">Mods</span></div>
 <div style="margin-top:26px;padding:34px 30px;border:1px solid #314256;border-radius:18px;background:#172334;">
 <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aaebe;">Google account setup</div>
 <h1 style="margin:14px 0 12px;color:#f5f7f8;">Confirm your email</h1>
-<p style="color:#b8c6d0;font-size:15px;line-height:1.65;">Your Google account is almost ready. Confirm your email before you enter the BeamMods garage.</p>
+<p style="color:#b8c6d0;font-size:15px;line-height:1.65;">Your Google account is almost ready. Confirm your email before you enter the ZenithHub garage.</p>
 <a href="{activation_url}" style="display:inline-block;padding:14px 24px;border-radius:9px;background:#ff6746;color:#101923;text-decoration:none;font-weight:800;">Activate account&nbsp; ↗</a>
 <p style="margin:25px 0 0;color:#8293a1;font-size:12px;">This link can be used once.</p></div>
-<p style="margin:24px 0 0;color:#718393;font-size:12px;">BeamMods · Your garage. Unlimited.</p></div></div></body></html>"""
+<p style="margin:24px 0 0;color:#718393;font-size:12px;">ZenithHub · Your garage. Unlimited.</p></div></div></body></html>"""
                     )
             if created_account:
                 return self.redirect_home("google_pending=1")
@@ -750,12 +761,12 @@ class Handler(BaseHTTPRequestHandler):
                     activation_url = f"{PUBLIC_URL}/?activation={quote(activation_token)}"
                     username_display = username
                     username_html = escape(username_display)
-                    send_email(email, "Welcome to BeamMods — activate your account",
-                               f"Welcome to BeamMods, {username_display}!\n\n"
+                    send_email(email, "Welcome to ZenithHub — activate your account",
+                               f"Welcome to ZenithHub, {username_display}!\n\n"
                                "Your account is almost ready. Confirm your email here:\n\n"
                                f"{activation_url}\n\n"
                                "This activation link can be used once. If you did not create this account, you can safely ignore this message.\n\n"
-                               "BeamMods\nYour garage. Unlimited.",
+                               "ZenithHub\nYour garage. Unlimited.",
                                f"""<!doctype html>
 <html lang="en">
 <body style="margin:0;background:#0d1520;color:#e9eef2;font-family:Arial,sans-serif;">
@@ -766,19 +777,19 @@ class Handler(BaseHTTPRequestHandler):
         <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aaebe;">Welcome to the garage</div>
         <h1 style="margin:14px 0 12px;font-size:28px;color:#f5f7f8;">Confirm your account</h1>
         <p style="margin:0 auto 26px;max-width:410px;color:#b8c6d0;font-size:15px;line-height:1.65;">
-          Hi {username_html}, your BeamMods account is almost ready. Confirm your email to start publishing and discovering mods.
+          Hi {username_html}, your ZenithHub account is almost ready. Confirm your email to start publishing and discovering mods.
         </p>
         <a href="{activation_url}" style="display:inline-block;padding:14px 24px;border-radius:9px;background:#ff6746;color:#101923;text-decoration:none;font-weight:800;font-size:14px;">Confirm email address&nbsp; ↗</a>
         <p style="margin:25px 0 0;color:#8293a1;font-size:12px;line-height:1.6;">This link can be used once. If you did not create this account, you can ignore this email.</p>
       </div>
-      <p style="margin:24px 0 0;color:#718393;font-size:12px;">BeamMods · Your garage. Unlimited.</p>
+      <p style="margin:24px 0 0;color:#718393;font-size:12px;">ZenithHub · Your garage. Unlimited.</p>
     </div>
   </div>
 </body>
 </html>""")
                     connection.commit()
                 return self.send_json(201, {"username": username, "email": email, "is_owner": owner,
-                                            "message": "Your account has been created successfully. Please check your inbox for the BeamMods activation email, then click the confirmation button to finish setting up your account."})
+                                            "message": "Your account has been created successfully. Please check your inbox for the ZenithHub activation email, then click the confirmation button to finish setting up your account."})
             if parsed.path == "/api/auth/forgot-password":
                 data = self.read_json()
                 email = str(data.get("email", "")).strip().lower()
@@ -787,7 +798,7 @@ class Handler(BaseHTTPRequestHandler):
                 with db() as connection:
                     user = execute(connection, "SELECT id,username FROM users WHERE lower(email)=lower(?)", (email,)).fetchone()
                     if not user:
-                        return self.send_json(404, {"error": "No BeamMods account was found with that email."})
+                        return self.send_json(404, {"error": "No ZenithHub account was found with that email."})
                     token = secrets.token_urlsafe(32)
                     expires = str(int(time.time()) + 3600)
                     execute(connection, "UPDATE users SET reset_token=?, reset_expires_at=? WHERE lower(email)=lower(?)",
@@ -795,13 +806,13 @@ class Handler(BaseHTTPRequestHandler):
                     username = user["username"] if isinstance(user, dict) else user[1]
                 reset_url = f"{PUBLIC_URL}/?reset={quote(token)}"
                 username_html = escape(username)
-                send_email(email, "Reset your BeamMods password",
+                send_email(email, "Reset your ZenithHub password",
                            f"Hi {username},\n\n"
-                           "We received a request to reset your BeamMods password.\n\n"
+                           "We received a request to reset your ZenithHub password.\n\n"
                            "Use this secure link within the next hour:\n\n"
                            f"{reset_url}\n\n"
                            "If you did not request this, you can ignore this email. Your current password will remain unchanged.\n\n"
-                           "BeamMods\nYour garage. Unlimited.",
+                           "ZenithHub\nYour garage. Unlimited.",
                            f"""<!doctype html>
 <html lang="en">
 <body style="margin:0;background:#0d1520;color:#e9eef2;font-family:Arial,sans-serif;">
@@ -812,13 +823,13 @@ class Handler(BaseHTTPRequestHandler):
         <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aaebe;">Account recovery</div>
         <h1 style="margin:14px 0 12px;font-size:28px;color:#f5f7f8;">Reset your password</h1>
         <p style="margin:0 auto 26px;max-width:410px;color:#b8c6d0;font-size:15px;line-height:1.65;">
-          Hi {username_html}, we received a request to create a new password for your BeamMods account.
+          Hi {username_html}, we received a request to create a new password for your ZenithHub account.
         </p>
         <a href="{reset_url}" style="display:inline-block;padding:14px 24px;border-radius:9px;background:#ff6746;color:#101923;text-decoration:none;font-weight:800;font-size:14px;">Reset password&nbsp; ↗</a>
         <p style="margin:25px 0 0;color:#8293a1;font-size:12px;line-height:1.6;">This secure link expires in one hour and can only be used once.</p>
       </div>
       <p style="margin:24px 0 0;color:#718393;font-size:12px;">If you did not request this, your current password remains unchanged.</p>
-      <p style="margin:8px 0 0;color:#718393;font-size:12px;">BeamMods · Your garage. Unlimited.</p>
+      <p style="margin:8px 0 0;color:#718393;font-size:12px;">ZenithHub · Your garage. Unlimited.</p>
     </div>
   </div>
 </body>
@@ -849,7 +860,7 @@ class Handler(BaseHTTPRequestHandler):
                     user = execute(connection, "SELECT * FROM users WHERE lower(email)=lower(?) OR lower(username)=lower(?)",
                                    (data.get("identifier", data.get("email", "")), data.get("identifier", data.get("email", "")))).fetchone()
                 if not user:
-                    return self.send_json(404, {"error": "No BeamMods account was found with that email or username. Create an account first."})
+                    return self.send_json(404, {"error": "No ZenithHub account was found with that email or username. Create an account first."})
                 if not verify_password(data["password"], user["password_hash"]):
                     return self.send_json(401, {"error": "Invalid email or password"})
                 if not user["is_active"]:
@@ -994,16 +1005,16 @@ class Handler(BaseHTTPRequestHandler):
                     try:
                         send_email(
                             user["email"],
-                            "Your BeamMods username was changed",
+                            "Your ZenithHub username was changed",
                             f"Hi {old_username},\n\n"
-                            f"Your BeamMods username was changed from @{old_username} to @{username}.\n\n"
-                            "If you did not make this change, sign in and contact BeamMods support.\n\n"
-                            "BeamMods",
+                            f"Your ZenithHub username was changed from @{old_username} to @{username}.\n\n"
+                            "If you did not make this change, sign in and contact ZenithHub support.\n\n"
+                            "ZenithHub",
                             f"<p>Hi {escape(old_username)},</p>"
-                            f"<p>Your BeamMods username was changed from <strong>@{escape(old_username)}</strong> "
+                            f"<p>Your ZenithHub username was changed from <strong>@{escape(old_username)}</strong> "
                             f"to <strong>@{escape(username)}</strong>.</p>"
-                            "<p>If you did not make this change, sign in and contact BeamMods support.</p>"
-                            "<p>BeamMods</p>"
+                            "<p>If you did not make this change, sign in and contact ZenithHub support.</p>"
+                            "<p>ZenithHub</p>"
                         )
                     except (RuntimeError, OSError, smtplib.SMTPException) as error:
                         email_error = str(error)
@@ -1022,11 +1033,17 @@ class Handler(BaseHTTPRequestHandler):
                 owner_id = owner["owner_id"] if isinstance(owner, dict) else owner[0]
                 if owner_id != user["id"] and not is_owner_user(user):
                     return self.send_json(403, {"error": "Owner access required"})
-                allowed = ("name", "category", "author", "description", "version", "configs", "approved")
+                allowed = ("name", "category", "author", "description", "version", "configs", "approved", "download_url")
                 values = [(k, data[k]) for k in allowed if k in data]
+                if "download_url" in data:
+                    download_url = str(data["download_url"]).strip()
+                    if download_url and not re.fullmatch(r"https?://\S+", download_url):
+                        return self.send_json(400, {"error": "Download link must start with http:// or https://"})
+                    values = [(k, download_url if k == "download_url" else v) for k, v in values]
                 if values:
                     execute(c, "UPDATE mods SET "+",".join(k+"=?" for k, _ in values)+" WHERE id=?",
                             [v for _, v in values]+[parts[2]])
+                    c.commit()
             updated = self.mod(parts[2], True)
             if not updated:
                 return self.send_json(404, {"error": "Mod not found"})
@@ -1047,12 +1064,12 @@ class Handler(BaseHTTPRequestHandler):
                 deleted_at = now()
                 send_email(
                     deleted_email,
-                    "BeamMods account deleted",
+                    "ZenithHub account deleted",
                     f"Hi {deleted_username},\n\n"
-                    "Your BeamMods account and its associated data have been permanently deleted.\n\n"
+                    "Your ZenithHub account and its associated data have been permanently deleted.\n\n"
                     f"Completed at: {deleted_at}\n\n"
-                    "If you did not request this change, contact the BeamMods owner immediately.\n\n"
-                    "BeamMods\nYour garage. Unlimited.",
+                    "If you did not request this change, contact the ZenithHub owner immediately.\n\n"
+                    "ZenithHub\nYour garage. Unlimited.",
                     f"""<!doctype html>
 <html lang="en">
 <body style="margin:0;background:#0d1520;color:#e9eef2;font-family:Arial,sans-serif;">
@@ -1063,16 +1080,16 @@ class Handler(BaseHTTPRequestHandler):
         <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aaebe;">Account security</div>
         <h1 style="margin:14px 0 12px;font-size:28px;color:#f5f7f8;">Account deleted</h1>
         <p style="margin:0 auto 22px;max-width:410px;color:#b8c6d0;font-size:15px;line-height:1.65;">
-          Hi {escape(deleted_username)}, your BeamMods account and all associated data have been permanently removed.
+          Hi {escape(deleted_username)}, your ZenithHub account and all associated data have been permanently removed.
         </p>
         <div style="margin:0 auto;padding:14px;border:1px solid #314256;border-radius:10px;color:#aebdca;background:#101b2a;font-size:12px;">
           Completed at: {escape(deleted_at)}
         </div>
         <p style="margin:24px 0 0;color:#8293a1;font-size:12px;line-height:1.6;">
-          If you did not request this deletion, contact the BeamMods owner immediately.
+          If you did not request this deletion, contact the ZenithHub owner immediately.
         </p>
       </div>
-      <p style="margin:24px 0 0;color:#718393;font-size:12px;">BeamMods · Your garage. Unlimited.</p>
+      <p style="margin:24px 0 0;color:#718393;font-size:12px;">ZenithHub · Your garage. Unlimited.</p>
     </div>
   </div>
 </body>
@@ -1195,5 +1212,5 @@ if __name__ == "__main__":
             time.sleep(5)
     port = int(os.environ.get("PORT", "8000"))
     host = os.environ.get("HOST", "0.0.0.0")
-    print(f"BeamMods backend: http://{host}:{port}")
+    print(f"ZenithHub backend: http://{host}:{port}")
     ThreadingHTTPServer((host, port), Handler).serve_forever()

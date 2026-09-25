@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="BeamMods - a community mod hub for BeamNG.drive">
-  <title>BeamMods — BeamNG.drive mods</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260909-3">
-  <link rel="apple-touch-icon" href="favicon.svg?v=20260909-3">
+  <meta name="description" content="ZenithHub - a community mod hub for BeamNG.drive">
+  <title>ZenithHub — BeamNG.drive mods</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=20260925-zenith">
+  <link rel="apple-touch-icon" href="favicon.svg?v=20260925-zenith">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260918-55">
+  <link rel="stylesheet" href="styles.css?v=20260925-58">
   <script>
     try {
       if (localStorage.getItem("beammods-view") && localStorage.getItem("beammods-current-user")) {
@@ -25,7 +25,7 @@
     <div class="build-notice-inner">
       <span class="build-notice-icon" aria-hidden="true">!</span>
       <div class="build-notice-copy">
-        <strong>BeamMods is still in development</strong>
+        <strong>ZenithHub is still in development</strong>
         <span>Some features may change or show occasional issues while we improve the platform.</span>
       </div>
       <span class="build-notice-badge">Early access</span>
@@ -37,21 +37,21 @@
     <div>
       <p class="eyebrow">Registration received</p>
       <h2>Your Google registration is almost complete.</h2>
-      <p>Please check your inbox for the BeamMods activation email and click the confirmation button before signing in. The link is required to securely activate your account.</p>
+      <p>Please check your inbox for the ZenithHub activation email and click the confirmation button before signing in. The link is required to securely activate your account.</p>
     </div>
   </section>
   <header class="site-header">
-    <a class="brand" href="#" aria-label="BeamMods — home">
+    <a class="brand" href="#" aria-label="ZenithHub — home">
       <span class="brand-mark" aria-hidden="true">
         <img src="favicon.svg" alt="">
       </span>
-      <span>Beam<span>Mods</span></span>
+      <span>Zenith<span>Hub</span></span>
     </a>
     <nav class="main-nav" aria-label="Main navigation">
       <a class="active" id="browse-link" href="#mods">Browse mods</a>
       <a id="how-link" href="#how-it-works">How it works</a>
     </nav>
-    <a class="discord-button" href="https://discord.gg/MbEmkpfDp" target="_blank" rel="noopener noreferrer" aria-label="Join the BeamMods Discord server">
+    <a class="discord-button" href="https://discord.gg/MbEmkpfDp" target="_blank" rel="noopener noreferrer" aria-label="Join the ZenithHub Discord server">
       <svg class="discord-logo" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M19.54 5.16A16.2 16.2 0 0 0 15.5 4l-.5 1.02a14.5 14.5 0 0 0-3-.32 14.5 14.5 0 0 0-3 .32L8.5 4a16.2 16.2 0 0 0-4.04 1.16C1.9 9.04 1.2 12.83 1.55 16.57A16.3 16.3 0 0 0 6.5 19l1.2-1.63c-.66-.24-1.3-.55-1.9-.91l.46-.35c3.67 1.7 7.66 1.7 11.28 0l.47.35c-.6.36-1.24.67-1.9.91L17.3 19a16.3 16.3 0 0 0 4.95-2.43c.41-4.34-.7-8.1-2.71-11.41ZM8.72 14.3c-1.1 0-2-.98-2-2.18s.88-2.18 2-2.18 2 .98 2 2.18-.9 2.18-2 2.18Zm6.56 0c-1.1 0-2-.98-2-2.18s.88-2.18 2-2.18 2 .98 2 2.18-.9 2.18-2 2.18Z"/>
       </svg>
@@ -66,7 +66,7 @@
         <span aria-hidden="true">🔔</span><b class="notifications-count" id="notifications-count" hidden>0</b>
       </button>
       <section class="notifications-panel" id="notifications-panel" hidden aria-label="Notifications">
-        <div class="notifications-heading"><div><p class="eyebrow">BeamMods inbox</p><h2>Notifications</h2></div><button id="notifications-mark-read" type="button">Mark all read</button></div>
+        <div class="notifications-heading"><div><p class="eyebrow">ZenithHub inbox</p><h2>Notifications</h2></div><button id="notifications-mark-read" type="button">Mark all read</button></div>
         <div id="notifications-list"></div>
       </section>
     </div>
@@ -105,6 +105,8 @@
             <div class="owner-view-heading"><div><p class="eyebrow">Private owner area</p><h2>Review <em>submissions.</em></h2></div><span class="owner-lock">OWNER ONLY</span></div>
             <p class="owner-intro">Check the preview, description and download source before accepting a community mod.</p>
             <div id="pending-mods"></div>
+            <h3>Live download links</h3>
+            <div id="managed-mods"><p class="form-note">Loading live mods...</p></div>
             <h3>Bug reports</h3>
             <div id="owner-reports"><p class="form-note">Loading reports...</p></div>
           </section>
@@ -137,19 +139,19 @@
     <section class="standalone-page" id="dmca-page" hidden>
       <div class="standalone-top"><div><p class="eyebrow">Legal information</p><h1>DMCA <em>notice.</em></h1></div><button class="back-button" id="back-from-dmca">← Back to library</button></div>
       <div class="standalone-content legal-copy">
-        <p>BeamMods respects copyright and intellectual property rights. If you believe a mod, image, description or other material on the platform infringes your copyright, you can send a formal DMCA notice for review.</p>
+        <p>ZenithHub respects copyright and intellectual property rights. If you believe a mod, image, description or other material on the platform infringes your copyright, you can send a formal DMCA notice for review.</p>
         <h2>What to include</h2>
-        <p>Provide your full name, contact details, identification of the copyrighted work, the direct BeamMods URL of the reported material, a statement that you have a good-faith belief the use is unauthorized, and a statement that the information is accurate under penalty of perjury.</p>
+        <p>Provide your full name, contact details, identification of the copyrighted work, the direct ZenithHub URL of the reported material, a statement that you have a good-faith belief the use is unauthorized, and a statement that the information is accurate under penalty of perjury.</p>
         <p>Send notices to <a href="mailto:beammodshub@gmail.com">beammodshub@gmail.com</a> with the subject line <strong>DMCA takedown request</strong>. We may contact the uploader for clarification and will review complete notices as promptly as possible.</p>
         <p class="form-note">Please do not submit false or incomplete claims. If you are the uploader and believe content was removed in error, include the original mod URL and an explanation when contacting us about a counter-notice.</p>
       </div>
     </section>
     <section class="standalone-page how-page" id="how-page" hidden>
-      <div class="standalone-top"><div><p class="eyebrow">The BeamMods process</p><h1>How it <em>works.</em></h1></div><button class="back-button" id="back-from-how">← Back to library</button></div>
+      <div class="standalone-top"><div><p class="eyebrow">The ZenithHub process</p><h1>How it <em>works.</em></h1></div><button class="back-button" id="back-from-how">← Back to library</button></div>
       <div class="standalone-content">
-        <p class="standalone-lead">BeamMods keeps publishing simple for creators and trustworthy for players. Follow four clear steps from your first sign-in to a live community release.</p>
+        <p class="standalone-lead">ZenithHub keeps publishing simple for creators and trustworthy for players. Follow four clear steps from your first sign-in to a live community release.</p>
         <div class="standalone-steps">
-          <article><span>01</span><div><h2>Create your account</h2><p>Sign in with a local BeamMods account or use Google. Your profile and published mods stay connected to your account.</p></div></article>
+          <article><span>01</span><div><h2>Create your account</h2><p>Sign in with a local ZenithHub account or use Google. Your profile and published mods stay connected to your account.</p></div></article>
           <article><span>02</span><div><h2>Prepare your upload</h2><p>Add the mod name, category, creator name, versions, configs, description, ZIP file and up to five preview images. The file size is read automatically.</p></div></article>
           <article><span>03</span><div><h2>Owner review</h2><p>New submissions remain private until the owner checks the preview, description, download source and technical details. You can see the pending status in your dashboard.</p></div></article>
           <article><span>04</span><div><h2>Publish and share</h2><p>After approval, the mod becomes visible in the public library. Players can open its details, read your description and follow the download source.</p></div></article>
@@ -167,9 +169,9 @@
           <div><strong>BeamNG.drive</strong><span>community library</span></div>
         </div>
       </div>
-      <div class="hero-art" aria-label="Featured BeamNG car artwork">
-        <div class="hero-art-top"><span>FEATURED DROP</span><b>01 / 03</b></div>
-        <div class="hero-art-caption"><span>BMW M4 G82</span><small>Community spotlight</small></div>
+      <div class="hero-art" aria-label="ZenithHub community signal">
+        <div class="hero-art-top"><span>ZENITH SIGNAL</span><b>01 / 03</b></div>
+        <div class="hero-art-caption"><span>Built for the next run.</span><small>Mods, creators and drivers in one hub.</small></div>
       </div>
     </section>
 
@@ -251,7 +253,7 @@
   </main>
 
   <footer class="site-footer">
-    <span>© 2026 BEAMMODS</span>
+    <span>© 2026 ZENITHHUB</span>
     <span>Unofficial BeamNG.drive community</span>
     <span>BEAMNG.drive © BeamNG</span>
     <button class="footer-link" id="dmca-link" type="button">DMCA</button>
@@ -286,7 +288,7 @@
         <button class="submit-button" id="publish-submit" type="submit">Publish mod <span>↗</span></button>
         <p class="upload-status" id="upload-status" aria-live="polite"></p>
       </form>
-      <p class="form-note upload-review-note"><strong>Review first:</strong> make sure your external download link points to the correct mod. Every new submission is reviewed by the BeamMods owner before it is approved.</p>
+      <p class="form-note upload-review-note"><strong>Review first:</strong> make sure your external download link points to the correct mod. Every new submission is reviewed by the ZenithHub owner before it is approved.</p>
     </section>
   </div>
   <div class="modal-backdrop" id="security-modal" hidden>
@@ -295,8 +297,8 @@
       <h2 id="security-title">Checking your <em>file.</em></h2>
       <div class="security-status"><span class="security-dot"></span><span id="security-message">Inspecting file name, type and size...</span></div>
       <div class="security-bar"><span id="security-progress"></span></div>
-      <p class="form-note">BeamMods checks the file type and size before upload. Uploaded archives are also validated by the server.</p>
-      <button class="submit-button security-close" id="security-close" type="button" hidden>Continue to BeamMods <span>↗</span></button>
+      <p class="form-note">ZenithHub checks the file type and size before upload. Uploaded archives are also validated by the server.</p>
+      <button class="submit-button security-close" id="security-close" type="button" hidden>Continue to ZenithHub <span>↗</span></button>
     </section>
   </div>
   <div class="modal-backdrop" id="upload-confirmation" hidden>
@@ -347,7 +349,7 @@
           <span id="comments-count">0 posts</span>
         </div>
         <div id="details-comments-list"></div>
-        <p class="comment-auth-note" id="comment-auth-note">Sign in to your BeamMods account to join the discussion and post a comment.</p>
+        <p class="comment-auth-note" id="comment-auth-note">Sign in to your ZenithHub account to join the discussion and post a comment.</p>
         <form id="details-comment-form">
           <textarea name="comment" required maxlength="500" placeholder="Share feedback, installation tips or questions..."></textarea>
           <button class="comment-submit" type="submit">Post comment <span>↗</span></button>
@@ -358,14 +360,14 @@
   <div class="modal-backdrop" id="auth-modal" hidden>
     <section class="modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
       <button class="modal-close" data-close-auth aria-label="Close">×</button>
-      <p class="eyebrow">BeamMods account</p>
+      <p class="eyebrow">ZenithHub account</p>
       <h2 id="auth-title">Join the <em>garage.</em></h2>
       <div class="auth-tabs">
         <button class="auth-tab active" data-auth-tab="login">Sign in</button>
         <button class="auth-tab" data-auth-tab="register">Create account</button>
       </div>
       <button class="google-button" id="google-sign-in" type="button"><span>G</span> Continue with Google</button>
-      <div class="auth-divider"><span>or use your BeamMods account</span></div>
+      <div class="auth-divider"><span>or use your ZenithHub account</span></div>
       <form id="auth-form">
         <label>Username or email<input name="username" required placeholder="Your username or email"></label>
         <label>Email<input name="email" type="email" required placeholder="you@example.com"></label>
@@ -399,7 +401,7 @@
   <div class="modal-backdrop" id="activation-result-modal" hidden>
     <section class="modal activation-result-modal" role="dialog" aria-modal="true" aria-labelledby="activation-result-title">
       <div class="activation-check">✓</div>
-      <p class="eyebrow">BeamMods account</p>
+      <p class="eyebrow">ZenithHub account</p>
       <h2 id="activation-result-title">Account <em>activated.</em></h2>
       <p id="activation-result-message" class="activation-result-copy"></p>
       <button class="submit-button" id="activation-login-button" type="button">Continue to sign in <span>↗</span></button>
@@ -436,7 +438,7 @@
         <label>Details<textarea name="details" required placeholder="Describe what is not working..."></textarea></label>
         <button class="submit-button" type="submit">Send bug report <span>↗</span></button>
       </form>
-      <p class="form-note">Reports are linked to your BeamMods account and can be reviewed by the owner.</p>
+      <p class="form-note">Reports are linked to your ZenithHub account and can be reviewed by the owner.</p>
     </section>
   </div>
   <div class="modal-backdrop" id="dmca-modal" hidden>
@@ -444,10 +446,10 @@
       <button class="modal-close" data-close-dmca aria-label="Close">×</button>
       <p class="eyebrow">Legal information</p>
       <h2 id="dmca-title">DMCA <em>notice.</em></h2>
-      <p>BeamMods respects copyright and intellectual property rights. If you believe a mod, image, description or other material on the platform infringes your copyright, you can send a formal DMCA notice for review. Include your contact details, the copyrighted work, the direct BeamMods URL, and a good-faith statement that the use is unauthorized.</p>
+      <p>ZenithHub respects copyright and intellectual property rights. If you believe a mod, image, description or other material on the platform infringes your copyright, you can send a formal DMCA notice for review. Include your contact details, the copyrighted work, the direct ZenithHub URL, and a good-faith statement that the use is unauthorized.</p>
       <p class="form-note">Send complete notices to <a href="mailto:beammodshub@gmail.com">beammodshub@gmail.com</a> with the subject line “DMCA takedown request”. False or incomplete claims may delay review.</p>
     </section>
   </div>
-  <script src="app.js?v=20260918-55"></script>
+  <script src="app.js?v=20260925-57"></script>
 </body>
 </html>
