@@ -4153,12 +4153,23 @@ body, button, input, select, textarea { font-family: "Manrope", sans-serif; }
   .mod-stat { gap: 5px; }
 }
 .mod-info > div {
+  width: 100%;
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
+  text-align: center;
+}
+.mod-info {
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
 }
 .mod-info h3 {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+}
+.mod-status {
+  align-self: center;
+  max-width: none;
+  padding-top: 0;
+  text-align: center;
 }
