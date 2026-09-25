@@ -18,19 +18,19 @@ services:
   - key: SMTP_HOST
     sync: false
   - key: PUBLIC_URL
-    sync: false
+    value: https://zenithhub-bvjf.onrender.com
   - key: GOOGLE_CLIENT_ID
     sync: false
   - key: GOOGLE_REDIRECT_URI
-    sync: false
+    value: https://zenithhub-bvjf.onrender.com/api/auth/google/callback
   - key: GOOGLE_CLIENT_SECRET
     sync: false
   - key: MAIL_FROM
-    sync: false
+    value: zenithhubmods@gmail.com
   - key: DATABASE_URL
     sync: false
   - key: DATA_DIR
-    sync: false
+    value: /var/data
   - key: PYTHON_VERSION
     sync: false
   region: oregon

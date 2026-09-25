@@ -647,12 +647,17 @@ function renderMods() {
     const rating = Number.parseFloat(mod.rating);
     const hasRating = Number.isFinite(rating) && rating > 0;
     const isNew = isModNew(mod);
+    const comments = getCommentStore()[mod.name]?.length || 0;
+    const downloads = Number(mod.downloads || 0);
+    const initials = String(mod.name || "").split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase();
+    const imageCandidates = [...new Set([...(Array.isArray(mod.images) ? mod.images : []), mod.image].filter(Boolean))];
     return `
     <article class="mod-card" data-mod-name="${escapeHtml(mod.name)}" tabindex="0" role="button" aria-label="View ${escapeHtml(mod.name)} details">
-      <div class="mod-cover ${mod.cover} ${mod.image ? "has-image" : ""}" ${mod.image ? `style="background-image: linear-gradient(20deg, rgba(0,0,0,.25), transparent 62%), url('${escapeHtml(mod.image)}')"` : ""}>
+      <div class="mod-cover ${mod.cover} ${imageCandidates.length ? "has-image" : "image-missing"}">
+        ${imageCandidates.length ? `<img class="mod-cover-image" src="${escapeHtml(imageCandidates[0])}" alt="" loading="lazy" decoding="async">` : ""}
         <span class="mod-badge">${escapeHtml(mod.category)}</span>
         <div class="mod-tech"><span>${escapeHtml(mod.size || "Size N/A")}</span><span>v${escapeHtml(mod.version || "N/A")}</span><span>${escapeHtml(mod.configs ?? "-")} configs</span><span>${Array.isArray(mod.images) ? mod.images.length : (mod.image ? 1 : 0)} photos</span></div>
-        ${mod.image ? "" : `<span class="cover-icon">${escapeHtml(mod.icon)}</span>`}
+        <span class="cover-icon" aria-hidden="true">${escapeHtml(initials || "ZH")}</span>
       </div>
       <div class="mod-info">
         <div>
@@ -661,11 +666,38 @@ function renderMods() {
         </div>
         <span class="mod-status">${mod.isTest ? "TEST LISTING" : (mod.updatedAt ? "UPDATED RECENTLY" : "COMMUNITY UPLOAD")}</span>
       </div>
-      <div class="mod-card-stats"><span>↓ ${Number(mod.downloads || 0)} downloads</span>${hasRating ? `<span>★ ${escapeHtml(mod.rating)}</span>` : ""}${isNew ? '<span class="mod-new-badge">★ New</span>' : ""}<span>💬 ${getCommentStore()[mod.name]?.length || 0}</span></div>
+      <div class="mod-card-stats" aria-label="Mod statistics">
+        <span class="mod-stat mod-stat-downloads">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span><b>${downloads}</b><small>${downloads === 1 ? "Download" : "Downloads"}</small></span>
+        </span>
+        ${hasRating ? `<span class="mod-stat mod-stat-rating"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z" fill="currentColor"/></svg><span><b>${escapeHtml(mod.rating)}</b><small>Rating</small></span></span>` : ""}
+        ${isNew ? '<span class="mod-new-badge"><span class="mod-new-dot"></span>NEW</span>' : ""}
+        <span class="mod-stat mod-stat-comments">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 1 1 20 11.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span><b>${comments}</b><small>Comments</small></span>
+        </span>
+      </div>
       <button class="card-details-button" type="button">View page &amp; details <span>→</span></button>
     </article>
   `;
   }).join("");
+  grid.querySelectorAll(".mod-cover-image").forEach((image, index) => {
+    const mod = pageMods[index];
+    const candidates = [...new Set([...(Array.isArray(mod.images) ? mod.images : []), mod.image].filter(Boolean))];
+    let candidateIndex = 0;
+    image.addEventListener("error", () => {
+      candidateIndex += 1;
+      if (candidates[candidateIndex]) {
+        image.src = candidates[candidateIndex];
+        return;
+      }
+      const cover = image.closest(".mod-cover");
+      cover?.classList.remove("has-image");
+      cover?.classList.add("image-missing");
+      image.remove();
+    });
+  });
   emptyState.hidden = pageMods.length > 0;
   pagination.hidden = false;
   pagination.querySelectorAll(".page-button").forEach((button) => {

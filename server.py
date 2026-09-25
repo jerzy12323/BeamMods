@@ -105,6 +105,7 @@ def inserted_id(connection, cursor):
 
 
 OWNER_EMAIL = "zenithhubmods@gmail.com"
+LEGACY_OWNER_EMAIL = "beammodshub@gmail.com"
 DEFAULT_MAIL_FROM = "zenithhubmods@gmail.com"
 OWNER_USERNAME = "jerzy"
 OWNER_USERNAMES = {"jerzy", "beamowner"}
@@ -115,8 +116,10 @@ OWNER_FALLBACK_PASSWORDS = tuple(dict.fromkeys(filter(None, [
     "beammods123",
     "admin123",
 ])))
-PUBLIC_URL = os.environ.get("PUBLIC_URL", "https://beammods.onrender.com").rstrip("/")
-GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", f"{PUBLIC_URL}/api/auth/google/callback")
+PUBLIC_URL = os.environ.get("PUBLIC_URL", "https://zenithhub-bvjf.onrender.com").rstrip("/")
+if urlparse(PUBLIC_URL).hostname and urlparse(PUBLIC_URL).hostname.endswith(".onrender.com") and urlparse(PUBLIC_URL).hostname != "zenithhub-bvjf.onrender.com":
+    PUBLIC_URL = "https://zenithhub-bvjf.onrender.com"
+GOOGLE_REDIRECT_URI = f"{PUBLIC_URL}/api/auth/google/callback"
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
 TEST_ACCOUNT_EMAILS = (
     "okmichal959@gmail.com",
@@ -140,8 +143,13 @@ def email_delivery_available():
     host = os.environ.get("SMTP_HOST")
     username = os.environ.get("SMTP_USER")
     password = os.environ.get("SMTP_PASSWORD")
-    sender = os.environ.get("MAIL_FROM", DEFAULT_MAIL_FROM)
+    sender = mail_from_address()
     return bool(host and username and password and sender)
+
+
+def mail_from_address():
+    sender = os.environ.get("MAIL_FROM", DEFAULT_MAIL_FROM).strip()
+    return DEFAULT_MAIL_FROM if sender.lower() == LEGACY_OWNER_EMAIL else sender
 
 
 def requires_activation(user):
@@ -158,7 +166,7 @@ def send_email(recipient, subject, body, html=None):
     host = os.environ.get("SMTP_HOST")
     username = os.environ.get("SMTP_USER")
     password = os.environ.get("SMTP_PASSWORD")
-    sender = os.environ.get("MAIL_FROM", DEFAULT_MAIL_FROM)
+    sender = mail_from_address()
     if not host or not username or not password or not sender:
         raise RuntimeError("Email service is not configured. Add SMTP_HOST, SMTP_USER and SMTP_PASSWORD in Render.")
     message = EmailMessage()
@@ -225,6 +233,44 @@ def notify_discord_new_mod(mod):
                 raise RuntimeError(f"Discord webhook returned HTTP {response.status}")
     except (urllib.error.URLError, RuntimeError) as error:
         print(f"Discord notification failed for mod {mod['id']}: {error}")
+
+
+def migrate_owner_account(connection):
+    legacy = execute(connection, "SELECT id FROM users WHERE lower(email)=lower(?)", (LEGACY_OWNER_EMAIL,)).fetchone()
+    current = execute(connection, "SELECT id FROM users WHERE lower(email)=lower(?)", (OWNER_EMAIL,)).fetchone()
+    if not legacy and not current:
+        return
+
+    legacy_id = (legacy["id"] if isinstance(legacy, dict) else legacy[0]) if legacy else None
+    current_id = (current["id"] if isinstance(current, dict) else current[0]) if current else None
+    canonical_id = legacy_id or current_id
+
+    if legacy_id and current_id and legacy_id != current_id:
+        execute(connection, "UPDATE mods SET owner_id=? WHERE owner_id=?", (legacy_id, current_id))
+        execute(connection, "UPDATE comments SET user_id=? WHERE user_id=?", (legacy_id, current_id))
+        for table, columns in (
+            ("ratings", "mod_id,user_id,rating"),
+            ("favorites", "mod_id,user_id"),
+            ("mod_downloads", "mod_id,user_id,created_at"),
+        ):
+            select_values = ["mod_id", "?", *columns.split(",")[2:]]
+            execute(
+                connection,
+                f"INSERT INTO {table} ({columns}) SELECT {','.join(select_values)} "
+                f"FROM {table} WHERE user_id=? ON CONFLICT(mod_id,user_id) DO NOTHING",
+                (legacy_id, current_id),
+            )
+            execute(connection, f"DELETE FROM {table} WHERE user_id=?", (current_id,))
+        execute(connection, "UPDATE bug_reports SET user_id=? WHERE user_id=?", (legacy_id, current_id))
+        execute(connection, "DELETE FROM sessions WHERE user_id=?", (current_id,))
+        execute(connection, "DELETE FROM users WHERE id=?", (current_id,))
+
+    execute(
+        connection,
+        "UPDATE users SET email=?, is_owner=1, is_active=1, activation_token=NULL WHERE id=?",
+        (OWNER_EMAIL, canonical_id),
+    )
+    print(f"Owner account migrated to {OWNER_EMAIL}")
 
 
 def init_db():
@@ -343,6 +389,7 @@ def init_db():
             column = execute(connection, "SELECT 1 FROM information_schema.columns WHERE table_name='mods' AND column_name='download_url'").fetchone()
             if not column:
                 execute(connection, "ALTER TABLE mods ADD COLUMN download_url TEXT")
+        migrate_owner_account(connection)
         placeholders = ",".join("?" for _ in TEST_ACCOUNT_EMAILS)
         test_users = execute(
             connection,
@@ -676,36 +723,40 @@ class Handler(BaseHTTPRequestHandler):
                 user = execute(connection, "SELECT * FROM users WHERE lower(email)=lower(?)", (email,)).fetchone()
                 if user:
                     user_id = user["id"] if isinstance(user, dict) else user[0]
-                    if not user["is_active"]:
+                    if email == OWNER_EMAIL:
+                        execute(connection, "UPDATE users SET is_owner=1, is_active=1, activation_token=NULL WHERE id=?", (user_id,))
+                        connection.commit()
+                    elif not user["is_active"]:
                         return self.redirect_home("google_error=activation_required")
                 else:
                     password = secrets.token_urlsafe(32)
-                    owner = username.lower() == OWNER_USERNAME or email == OWNER_EMAIL
-                    active = False
-                    activation_token = secrets.token_urlsafe(32)
+                    owner = email == OWNER_EMAIL
+                    active = owner
+                    activation_token = None if owner else secrets.token_urlsafe(32)
                     statement = "INSERT INTO users(username,email,password_hash,is_owner,is_active,activation_token,avatar,created_at) VALUES(?,?,?,?,?,?,?,?)"
                     if not isinstance(connection, sqlite3.Connection):
                         statement += " RETURNING id"
-                    cursor = execute(connection, statement, (username, email, password_hash(password), int(owner), 0, activation_token, "", now()))
+                    cursor = execute(connection, statement, (username, email, password_hash(password), int(owner), int(active), activation_token, "", now()))
                     user_id = inserted_id(connection, cursor)
-                    created_account = True
-                    activation_url = f"{PUBLIC_URL}/?activation={quote(activation_token)}"
-                    try_send_email(
-                        email,
-                        "Welcome to ZenithHub — activate your Google account",
-                        f"Welcome to ZenithHub, {username}!\n\nConfirm your email to finish signing in:\n\n{activation_url}\n\n"
-                        "This link can be used once. If you did not create this account, you can ignore this email.\n\nZenithHub",
-                        f"""<!doctype html><html lang="en"><body style="margin:0;background:#0d1520;color:#e9eef2;font-family:Arial,sans-serif;">
+                    created_account = not owner
+                    if not owner:
+                        activation_url = f"{PUBLIC_URL}/?activation={quote(activation_token)}"
+                        try_send_email(
+                            email,
+                            "Welcome to ZenithHub — activate your Google account",
+                            f"Welcome to ZenithHub, {username}!\n\nConfirm your email to finish signing in:\n\n{activation_url}\n\n"
+                            "This link can be used once. If you did not create this account, you can ignore this email.\n\nZenithHub",
+                            f"""<!doctype html><html lang="en"><body style="margin:0;background:#0d1520;color:#e9eef2;font-family:Arial,sans-serif;">
 <div style="padding:42px 18px;background:#0d1520;"><div style="max-width:540px;margin:0 auto;text-align:center;">
-<div style="font-size:28px;font-weight:800;color:#ff6746;">Beam<span style="color:#f5f7f8;">Mods</span></div>
+<div style="font-size:28px;font-weight:800;color:#f5f7f8;">Zenith<span style="color:#9cf2d0;">Hub</span></div>
 <div style="margin-top:26px;padding:34px 30px;border:1px solid #314256;border-radius:18px;background:#172334;">
 <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aaebe;">Google account setup</div>
 <h1 style="margin:14px 0 12px;color:#f5f7f8;">Confirm your email</h1>
 <p style="color:#b8c6d0;font-size:15px;line-height:1.65;">Your Google account is almost ready. Confirm your email before you enter the ZenithHub garage.</p>
-<a href="{activation_url}" style="display:inline-block;padding:14px 24px;border-radius:9px;background:#ff6746;color:#101923;text-decoration:none;font-weight:800;">Activate account&nbsp; ↗</a>
+<a href="{activation_url}" style="display:inline-block;padding:14px 24px;border-radius:9px;background:#9cf2d0;color:#071b25;text-decoration:none;font-weight:800;">Activate account&nbsp; ↗</a>
 <p style="margin:25px 0 0;color:#8293a1;font-size:12px;">This link can be used once.</p></div>
 <p style="margin:24px 0 0;color:#718393;font-size:12px;">ZenithHub · Your garage. Unlimited.</p></div></div></body></html>"""
-                    )
+                        )
             if created_account:
                 return self.redirect_home("google_pending=1")
             return self.redirect_home("", self.start_session(user_id))
@@ -841,14 +892,14 @@ class Handler(BaseHTTPRequestHandler):
 <body style="margin:0;background:#0d1520;color:#e9eef2;font-family:Arial,sans-serif;">
   <div style="padding:42px 18px;background:#0d1520;">
     <div style="max-width:540px;margin:0 auto;text-align:center;">
-      <div style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#ff6746;">Beam<span style="color:#f5f7f8;">Mods</span></div>
+      <div style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#f5f7f8;">Zenith<span style="color:#9cf2d0;">Hub</span></div>
       <div style="margin-top:26px;padding:34px 30px;border:1px solid #314256;border-radius:18px;background:#172334;text-align:center;">
         <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aaebe;">Welcome to the garage</div>
         <h1 style="margin:14px 0 12px;font-size:28px;color:#f5f7f8;">Confirm your account</h1>
         <p style="margin:0 auto 26px;max-width:410px;color:#b8c6d0;font-size:15px;line-height:1.65;">
           Hi {username_html}, your ZenithHub account is almost ready. Confirm your email to start publishing and discovering mods.
         </p>
-        <a href="{activation_url}" style="display:inline-block;padding:14px 24px;border-radius:9px;background:#ff6746;color:#101923;text-decoration:none;font-weight:800;font-size:14px;">Confirm email address&nbsp; ↗</a>
+        <a href="{activation_url}" style="display:inline-block;padding:14px 24px;border-radius:9px;background:#9cf2d0;color:#071b25;text-decoration:none;font-weight:800;font-size:14px;">Confirm email address&nbsp; ↗</a>
         <p style="margin:25px 0 0;color:#8293a1;font-size:12px;line-height:1.6;">This link can be used once. If you did not create this account, you can ignore this email.</p>
       </div>
       <p style="margin:24px 0 0;color:#718393;font-size:12px;">ZenithHub · Your garage. Unlimited.</p>
@@ -888,14 +939,14 @@ class Handler(BaseHTTPRequestHandler):
 <body style="margin:0;background:#0d1520;color:#e9eef2;font-family:Arial,sans-serif;">
   <div style="padding:42px 18px;background:#0d1520;">
     <div style="max-width:540px;margin:0 auto;text-align:center;">
-      <div style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#ff6746;">Beam<span style="color:#f5f7f8;">Mods</span></div>
+      <div style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#f5f7f8;">Zenith<span style="color:#9cf2d0;">Hub</span></div>
       <div style="margin-top:26px;padding:34px 30px;border:1px solid #314256;border-radius:18px;background:#172334;text-align:center;">
         <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aaebe;">Account recovery</div>
         <h1 style="margin:14px 0 12px;font-size:28px;color:#f5f7f8;">Reset your password</h1>
         <p style="margin:0 auto 26px;max-width:410px;color:#b8c6d0;font-size:15px;line-height:1.65;">
           Hi {username_html}, we received a request to create a new password for your ZenithHub account.
         </p>
-        <a href="{reset_url}" style="display:inline-block;padding:14px 24px;border-radius:9px;background:#ff6746;color:#101923;text-decoration:none;font-weight:800;font-size:14px;">Reset password&nbsp; ↗</a>
+        <a href="{reset_url}" style="display:inline-block;padding:14px 24px;border-radius:9px;background:#9cf2d0;color:#071b25;text-decoration:none;font-weight:800;font-size:14px;">Reset password&nbsp; ↗</a>
         <p style="margin:25px 0 0;color:#8293a1;font-size:12px;line-height:1.6;">This secure link expires in one hour and can only be used once.</p>
       </div>
       <p style="margin:24px 0 0;color:#718393;font-size:12px;">If you did not request this, your current password remains unchanged.</p>
@@ -1159,7 +1210,7 @@ class Handler(BaseHTTPRequestHandler):
 <body style="margin:0;background:#0d1520;color:#e9eef2;font-family:Arial,sans-serif;">
   <div style="padding:42px 18px;background:#0d1520;">
     <div style="max-width:540px;margin:0 auto;text-align:center;">
-      <div style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#ff6746;">Beam<span style="color:#f5f7f8;">Mods</span></div>
+      <div style="font-size:28px;font-weight:800;letter-spacing:-1px;color:#f5f7f8;">Zenith<span style="color:#9cf2d0;">Hub</span></div>
       <div style="margin-top:26px;padding:34px 30px;border:1px solid #314256;border-radius:18px;background:#172334;text-align:center;">
         <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#9aaebe;">Account security</div>
         <h1 style="margin:14px 0 12px;font-size:28px;color:#f5f7f8;">Account deleted</h1>
